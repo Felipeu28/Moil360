@@ -113,7 +113,9 @@ async function retryableCall<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T
       
       if (msg.includes("Requested entity was not found") || msg.includes("VANGUARD_API_KEY_EXPIRED")) {
         console.warn("Project mismatch detected. Resetting key selection.");
-        await window.aistudio.openSelectKey();
+        if ((window as any)?.aistudio?.openSelectKey) {
+  await (window as any).aistudio.openSelectKey();
+}
         throw new Error("API Key updated. Please retry the operation.");
       }
 
@@ -156,7 +158,7 @@ export async function generateContentStrategy(business: BusinessInfo): Promise<S
   const brandContext = business.brandDNA ? `BRAND IDENTITY: Colors ${business.brandDNA.primaryColor}, Tone: ${business.brandDNA.toneVoice}. Negative Keywords: ${business.brandDNA.negativeKeywords.join(', ')}.` : "";
   
   const research: GenerateContentResponse = await retryableCall(() => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
     return ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `
@@ -178,7 +180,7 @@ export async function generateContentStrategy(business: BusinessInfo): Promise<S
   const researchText = research.text || "Market synthesis grounded in real-time trends.";
 
   const response: GenerateContentResponse = await retryableCall(() => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
     return ai.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: `
@@ -228,7 +230,7 @@ export async function generateContentStrategy(business: BusinessInfo): Promise<S
 
 export async function regenerateDay(business: BusinessInfo, currentDay: ContentDay, feedback: string): Promise<ContentDay> {
   const response: GenerateContentResponse = await retryableCall(() => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
     return ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `REGENERATE DAY ${currentDay.day}. FEEDBACK: "${feedback}". Maintain "Juan-Style". Ensure image_prompts LITERALLY show the topic with specific, concrete visual elements. ${JUAN_STYLE_PROMPT}`,
@@ -244,7 +246,7 @@ export async function regenerateDay(business: BusinessInfo, currentDay: ContentD
 
 export async function translateContent(hook: string, caption: string, targetLanguage: string): Promise<{ hook: string, caption: string }> {
   const response: GenerateContentResponse = await retryableCall(() => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
     return ai.models.generateContent({
       model: "gemini-3-flash-preview", 
       contents: `Transcreate to ${targetLanguage}. MAINTAIN AGGRESSIVE WHITE SPACE. ${JUAN_STYLE_PROMPT} HOOK: "${hook}" CAPTION: "${caption}"`,
@@ -270,7 +272,7 @@ export async function generateAIImage(
   aspectRatio: '9:16' | '16:9' | '1:1' = '9:16'
 ): Promise<string> {
   const response: GenerateContentResponse = await retryableCall(() => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
     const parts: any[] = [];
     
     if (existingBase64 && feedback) {
@@ -306,7 +308,7 @@ CRITICAL REQUIREMENTS:
 }
 
 export async function generateAIVideo(imageUri: string, topic: string, strategy: string): Promise<{ url: string, uri: string, blob: Blob }> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
   
   // ✅ FIX: Properly extract and format base64 data
   let base64Data: string;
@@ -385,7 +387,7 @@ export async function generateAIVideo(imageUri: string, topic: string, strategy:
   
   console.log(`✅ Video generated successfully: ${uri}`);
   
-  const downloadUrl = `${uri}&key=${process.env.API_KEY}`;
+  const downloadUrl = `${uri}&key=${import.meta.env.VITE_GEMINI_API_KEY}`;
   
   try {
     const resp = await vanguardFetch(downloadUrl, {}, 4);
