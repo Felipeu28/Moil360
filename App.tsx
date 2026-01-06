@@ -1,4 +1,3 @@
-
 import { vanguardFetch } from './services/geminiService';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
@@ -112,6 +111,10 @@ const App: React.FC = () => {
   const handleSelectProject = async (project: Project) => {
     if (project.id === 'new') {
       setActiveProject(null);
+      // ✅ CRITICAL FIX: Clear asset states when starting a new project
+      setGeneratedImages([]);
+      setGeneratedVideos([]);
+      setVisualLayers({});
       setView('form');
       return;
     }
@@ -211,6 +214,12 @@ const App: React.FC = () => {
         projectToUse = await storage.createProject(info.name, info.industry, info);
         setActiveProject(projectToUse);
       }
+      
+      // ✅ CRITICAL FIX: Clear all asset states for the new project
+      setGeneratedImages([]);
+      setGeneratedVideos([]);
+      setVisualLayers({});
+      
       const result = await generateContentStrategy(info);
       await storage.saveStrategy(projectToUse.id, result);
       setStrategy(result);
@@ -235,6 +244,12 @@ const App: React.FC = () => {
         });
         setActiveProject(projectToUse);
       }
+      
+      // ✅ CRITICAL FIX: Clear asset states for remote sync project
+      setGeneratedImages([]);
+      setGeneratedVideos([]);
+      setVisualLayers({});
+      
       await storage.saveStrategy(projectToUse.id, result);
       setStrategy(result);
       setSelectedDay(result.calendar?.[0] || null);
@@ -261,6 +276,12 @@ const App: React.FC = () => {
         "Restored",
         importData.business_info || {}
       );
+      
+      // ✅ CRITICAL FIX: Clear asset states for imported project
+      setGeneratedImages([]);
+      setGeneratedVideos([]);
+      setVisualLayers({});
+      
       await storage.saveStrategy(project.id, importedStrategy);
       setActiveProject(project);
       setStrategy(importedStrategy);
