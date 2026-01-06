@@ -392,7 +392,8 @@ export const DayDetailView: React.FC<Props> = ({
     if (currentDayImages.length === 0) {
       setLoadingImg(true);
       try {
-        const url = await generateAIImage(day.image_prompts[0], undefined, undefined, imageEngine, aspectRatio);
+        console.log(`🎨 Generating image with aspect ratio: ${aspectRatio}`);
+const url = await generateAIImage(day.image_prompts[0], undefined, undefined, imageEngine, aspectRatio);(day.image_prompts[0], undefined, undefined, imageEngine, aspectRatio);
         onImageGenerated({ dayIndex: day.day, promptIndex: 0, url, modelId: imageEngine, createdAt: Date.now() });
       } catch (err: any) { alert(err.message); } finally { setLoadingImg(false); }
       return;
@@ -401,7 +402,8 @@ export const DayDetailView: React.FC<Props> = ({
     setLoadingImg(true);
     try {
       const existingBase64 = currentDayImages.length > 0 ? currentDayImages[currentDayImages.length - 1].url : undefined;
-      const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existingBase64, imageEngine, aspectRatio);
+      console.log(`🎨 Regenerating image with aspect ratio: ${aspectRatio}`);
+const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existingBase64, imageEngine, aspectRatio);
       onImageGenerated({ dayIndex: day.day, promptIndex: nextPromptIndex, url, modelId: imageEngine, createdAt: Date.now() });
       setShowImgEditPanel(false); setImgEditFeedback('');
     } catch (err: any) { alert(err.message); } finally { setLoadingImg(false); }
@@ -721,7 +723,7 @@ export const DayDetailView: React.FC<Props> = ({
            <div className="space-y-6">
               {activeAsset && (
                 <div className="space-y-6">
-                  <div ref={previewRef} className="relative aspect-[9/16] w-full max-w-[340px] mx-auto rounded-[3.5rem] overflow-hidden shadow-[0_60px_120px_rgba(0,0,0,0.2)] border-[14px] border-white group bg-slate-100">
+                  <div ref={previewRef} className={`relative ${aspectRatio === '16:9' ? 'aspect-[16/9] max-w-[600px]' : aspectRatio === '1:1' ? 'aspect-square max-w-[400px]' : 'aspect-[9/16] max-w-[340px]'} w-full mx-auto rounded-[3.5rem] overflow-hidden shadow-[0_60px_120px_rgba(0,0,0,0.2)] border-[14px] border-white group bg-slate-100`}>
                     <div className="absolute inset-0 z-20 pointer-events-none">
                       {activeSnapLines.y !== null && (
                         <div className={`absolute left-0 right-0 h-[1px] shadow-[0_0_12px_rgba(99,102,241,0.5)] transition-all ${gridMode === 'golden' ? 'bg-amber-400' : 'bg-indigo-400'}`} style={{ top: `${activeSnapLines.y}%` }} />
