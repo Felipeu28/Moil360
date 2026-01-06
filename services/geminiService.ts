@@ -457,7 +457,7 @@ export async function generateAIVideo(
   brandDNA?: BrandDNA
 ): Promise<{ url: string, uri: string, blob: Blob }> {
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
-  
+  }
   // Helper functions for strategic video motion
   const getMotionStyle = (type: string): string => {
     switch(type) {
