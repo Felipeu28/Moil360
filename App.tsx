@@ -14,10 +14,6 @@ import { storage } from './services/storageService';
 import { translations } from './services/i18nService';
 import { Layers, LogOut, ChevronLeft, Settings, TrendingUp, Globe, Search, RefreshCw, Database, CloudOff, AlertCircle, Construction } from 'lucide-react';
 
-if (typeof window === 'undefined') return null;
-
-console.log('APP RENDERED');
-
 const safeDataURItoBlob = (dataURI: string) => {
   if (!dataURI.startsWith('data:')) return null;
   try {
