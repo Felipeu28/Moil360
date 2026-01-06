@@ -366,7 +366,7 @@ export async function generateAIVideo(imageUri: string, topic: string, strategy:
   
   while (!operation.done && pollCount < maxPolls) {
     await new Promise(r => setTimeout(r, 10000)); // Poll every 10 seconds
-    const pollingAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const pollingAi = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     operation = await pollingAi.operations.getVideosOperation({ operation: operation });
     pollCount++;
     
