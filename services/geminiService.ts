@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { BusinessInfo, ContentDay, MarketInsight, StrategyResult, MarketContext } from "../types";
+import { BusinessInfo, ContentDay, MarketInsight, StrategyResult, MarketContext, BrandDNA } from "../types";
 
 const CONTENT_SCHEMA = {
   type: Type.OBJECT,
@@ -153,17 +153,60 @@ export async function fetchRemoteStrategy(url: string): Promise<StrategyResult> 
 
 export async function generateContentStrategy(business: BusinessInfo): Promise<StrategyResult> {
   const baseDate = business.startDate || new Date().toISOString().split('T')[0];
+  const year = new Date(baseDate).getFullYear();
   const brandContext = business.brandDNA ? `BRAND IDENTITY: Colors ${business.brandDNA.primaryColor}, Tone: ${business.brandDNA.toneVoice}. Negative Keywords: ${business.brandDNA.negativeKeywords.join(', ')}.` : "";
   
+  // Enhanced research with multiple targeted queries
   const research: GenerateContentResponse = await retryableCall(() => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     return ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `
-        PERFORM AN EXHAUSTIVE MULTI-SOURCE MARKET SWEEP for the ${business.industry} industry starting from ${baseDate}. 
-        Investigate trends using Google Search.
+        COMPREHENSIVE MARKET INTELLIGENCE BRIEFING
+        
+        Industry: ${business.industry}
+        Target Audience: ${business.targetAudience}
+        Date Context: ${baseDate}
+        Business: ${business.name}
+        Core Values: ${business.coreValues}
+        Main Goals: ${business.mainGoals}
+        
+        RESEARCH OBJECTIVES:
+        1. Find 8-10 HIGH-QUALITY sources from authoritative sites
+        2. Prioritize: Industry publications, recent news (last 30 days), data reports, case studies
+        3. Identify emerging trends, competitive landscape, audience pain points
+        4. Gather statistics, expert insights, and success stories
+        5. Include both macro industry trends and micro opportunities specific to ${business.targetAudience}
+        
+        MULTI-ANGLE SEARCH STRATEGY (execute all):
+        - "${business.industry} trends ${year}"
+        - "${business.targetAudience} pain points ${business.industry}"
+        - "${business.industry} statistics and market data ${year}"
+        - "${business.industry} case studies success stories"
+        - "emerging opportunities ${business.industry}"
+        - "${business.industry} news last 30 days"
+        - "${business.targetAudience} preferences ${business.industry}"
+        - "${business.industry} best practices ${year}"
+        
+        QUALITY CRITERIA:
+        - Published within last 90 days strongly preferred
+        - From reputable sources: industry journals, major news outlets, research firms, trade publications
+        - Contains actionable data, statistics, and insights
+        - Directly relevant to ${business.targetAudience}
+        - Diverse perspectives (avoid single-source bias)
+        
+        DELIVERABLE:
+        Provide a comprehensive market intelligence report synthesizing ALL findings with:
+        - Current state of ${business.industry}
+        - Key trends affecting ${business.targetAudience}
+        - Data-backed opportunities
+        - Competitive insights
+        - Content strategy recommendations
       `,
-      config: { tools: [{ googleSearch: {} }] },
+      config: { 
+        tools: [{ googleSearch: {} }],
+        temperature: 0.7
+      },
     });
   });
 
@@ -188,13 +231,58 @@ export async function generateContentStrategy(business: BusinessInfo): Promise<S
         TASK: Generate a 30-day "Juan-Style" Content Strategy.
         
         CRITICAL IMAGE PROMPT REQUIREMENTS:
-        - Each image_prompt must LITERALLY show the exact topic being discussed
-        - NO abstract concepts or metaphors
-        - Include SPECIFIC visual elements that match the post content
-        - Show real scenarios, people, tools, or products mentioned in the topic
-        - Example: For "Bilingual Revenue Multiplier" → Show Hispanic technician with homeowner, 'Se Habla Español' on truck visible
-        - Example: For "$200/Hour Technician" → Show professional technician with pricing tablet/invoice clearly visible
-        - Example: For "Green Premium in Construction" → Show eco-friendly renovation with visible solar panels or insulation
+        
+        BRAND INTEGRATION:
+        - Company: ${business.name}
+        - Industry: ${business.industry}
+        - Brand Colors: Primary ${business.brandDNA?.primaryColor || '#6366F1'}, Secondary ${business.brandDNA?.secondaryColor || '#FACC15'}
+        - Brand Tone: ${business.brandDNA?.toneVoice || 'Professional and trustworthy'}
+        - Target Audience: ${business.targetAudience}
+        - Avoid: ${business.brandDNA?.negativeKeywords?.join(', ') || 'Generic stock photos, clichés'}
+        
+        VISUAL REQUIREMENTS FOR EACH IMAGE PROMPT:
+        1. LITERAL TOPIC REPRESENTATION: Show EXACTLY what the post discusses (no abstracts/metaphors)
+        2. AUDIENCE ALIGNMENT: Visual must resonate with ${business.targetAudience}
+        3. BRAND CONSISTENCY: Subtly incorporate brand colors in:
+           - Clothing/uniforms (${business.brandDNA?.primaryColor || 'professional colors'})
+           - Props, tools, equipment
+           - Background elements, vehicles, signage
+        4. INDUSTRY CONTEXT: Include ${business.industry}-specific:
+           - Settings (workplace, job site, office appropriate to industry)
+           - Tools and equipment authentic to the work
+           - Professional scenarios that audience recognizes
+        5. EMOTIONAL TONE: Match ${business.brandDNA?.toneVoice || 'professional'} energy
+        
+        FORMAT REQUIREMENTS:
+        - Professional commercial photography quality, 8k resolution
+        - Cinematic lighting and composition
+        - Hero-style framing (subject prominent, clear focal point)
+        - People diversity representing ${business.targetAudience} demographics
+        - NO text overlays (added in post-processing)
+        - NO generic stock photo aesthetics
+        
+        CONCRETE EXAMPLES:
+        
+        For "Bilingual Revenue Multiplier" in ${business.industry}:
+        → Hispanic technician/worker in ${business.brandDNA?.primaryColor || 'company-branded'} shirt discussing with homeowner/client, 
+        visible "Se Habla Español" sign on work truck/office, ${business.industry}-appropriate setting, 
+        tools visible, professional handshake or consultation pose, warm natural lighting
+        
+        For "$200/Hour Technician" in ${business.industry}:
+        → Professional ${business.industry} worker in branded uniform holding tablet/invoice showing pricing,
+        confident pose in ${business.industry} setting, high-end tools visible, 
+        clean professional environment, pricing/value indicators visible, premium service aesthetic
+        
+        For "Green Premium in Construction" (if relevant):
+        → Eco-friendly ${business.industry} renovation with visible solar panels/insulation/green tech,
+        worker in ${business.brandDNA?.primaryColor || 'professional'} gear explaining to client,
+        energy-efficient equipment visible, natural materials, sustainability focus clear
+        
+        Each image_prompt must paint a VIVID, SPECIFIC scene that:
+        - Anyone in ${business.industry} would recognize as authentic
+        - ${business.targetAudience} would find relatable and aspirational
+        - Clearly communicates the post topic without reading the caption
+        - Incorporates brand identity naturally (not forced)
         
         ${JUAN_STYLE_PROMPT}
       `,
@@ -361,8 +449,55 @@ CRITICAL REQUIREMENTS:
   return `data:image/png;base64,${data}`;
 }
 
-export async function generateAIVideo(imageUri: string, topic: string, strategy: string): Promise<{ url: string, uri: string, blob: Blob }> {
+export async function generateAIVideo(
+  imageUri: string, 
+  topic: string, 
+  strategy: string,
+  contentType?: string,
+  brandDNA?: BrandDNA
+): Promise<{ url: string, uri: string, blob: Blob }> {
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
+  
+  // Helper functions for strategic video motion
+  const getMotionStyle = (type: string): string => {
+    switch(type) {
+      case 'Educational': return 'Slow zoom in to reveal detail, methodical panning to highlight key learning points';
+      case 'Promotional': return 'Dynamic push-in with energy, quick reveals, attention-grabbing opening';
+      case 'Engagement': return 'Natural human-centric movement, follow subject authentically, relatable perspective';
+      case 'Behind the Scenes': return 'Documentary-style pan, authentic reveal, intimate behind-the-curtain feel';
+      case 'Testimonial': return 'Intimate slow dolly to subject, emotional close-up, warm and inviting';
+      case 'Entertainment': return 'Playful, dynamic movement with personality, entertaining energy';
+      default: return 'Smooth professional cinematic motion with purpose';
+    }
+  };
+
+  const getCameraStrategy = (platformStrategy: string): string => {
+    if (platformStrategy.toLowerCase().includes('tiktok') || platformStrategy.toLowerCase().includes('reel')) {
+      return 'Hook viewer in first 2 seconds with dynamic motion, fast-paced for short attention spans';
+    } else if (platformStrategy.toLowerCase().includes('stories')) {
+      return 'Vertical-optimized movement, casual feel, quick engaging motion';
+    }
+    return 'Professional smooth cinematography, platform-optimized engagement';
+  };
+
+  const getPacing = (type: string): string => {
+    switch(type) {
+      case 'Promotional': return 'Fast, energetic (3-5 seconds optimal, hook immediately)';
+      case 'Educational': return 'Moderate, clear pacing (5-7 seconds, allow comprehension)';
+      case 'Testimonial': return 'Slow, intimate (6-8 seconds, build emotional connection)';
+      case 'Behind the Scenes': return 'Natural, authentic pacing (5-7 seconds)';
+      default: return 'Medium engaging pace (5-6 seconds, maintain interest)';
+    }
+  };
+
+  const getDuration = (type: string): string => {
+    switch(type) {
+      case 'Promotional': return '5 seconds';
+      case 'Educational': return '7 seconds';
+      case 'Testimonial': return '8 seconds';
+      default: return '6 seconds';
+    }
+  };
   
   let base64Data: string;
   let mimeType: string = 'image/png';
@@ -443,10 +578,60 @@ export async function generateAIVideo(imageUri: string, topic: string, strategy:
   
   const model = 'veo-3.1-fast-generate-preview';
   
-  // ✅ FIX: Use correct API format with bytesBase64Encoded
+  // Enhanced strategic video prompt
+  const videoPrompt = `
+STRATEGIC ANIMATED VIDEO BRIEF
+
+Core Topic: ${topic}
+Content Type: ${contentType || 'Professional'}
+Platform Distribution: ${strategy}
+Target Duration: ${getDuration(contentType || 'Professional')}
+
+ANIMATION STRATEGY (Content-Type Specific):
+${getMotionStyle(contentType || 'Professional')}
+
+CAMERA & MOVEMENT DIRECTION:
+- Platform Strategy: ${getCameraStrategy(strategy)}
+- Motion Pacing: ${getPacing(contentType || 'Professional')}
+- Camera Behavior: ${contentType === 'Promotional' ? 'Dynamic, energetic, attention-commanding' : contentType === 'Educational' ? 'Methodical, clear, purposeful reveals' : 'Smooth, professional, engaging'}
+- Focus Strategy: Emphasize key visual elements from "${topic}" - highlight people, actions, tools, results, emotional moments
+
+PROFESSIONAL PRODUCTION STANDARDS:
+- Quality: 4K resolution, cinematic color grading
+- Motion: Buttery smooth (no shakiness), professional stabilization
+- Lighting: Enhance natural lighting, maintain visual clarity
+- Depth: Subtle depth-of-field where it adds impact
+- Framing: 9:16 vertical optimization for mobile-first platforms
+- Transitions: Natural, seamless (avoid jarring cuts)
+
+BRAND & AUDIENCE ALIGNMENT:
+- Brand Tone: ${brandDNA?.toneVoice || 'Professional, trustworthy, engaging'}
+- Energy Level: ${contentType === 'Promotional' ? 'High energy, exciting' : contentType === 'Educational' ? 'Measured, clear' : contentType === 'Testimonial' ? 'Warm, intimate' : 'Professional, confident'}
+- Visual Personality: Match brand identity naturally
+- Emotional Goal: ${contentType === 'Educational' ? 'Inform and empower' : contentType === 'Promotional' ? 'Excite and motivate action' : contentType === 'Testimonial' ? 'Build trust and connection' : contentType === 'Engagement' ? 'Create relatability' : 'Engage professionally'}
+
+PURPOSE-DRIVEN CINEMATOGRAPHY:
+${contentType === 'Educational' ? '- Reveal learning points sequentially\n- Pause on key details\n- Guide viewer attention methodically' : ''}
+${contentType === 'Promotional' ? '- Hook in first second\n- Build excitement rapidly\n- Create FOMO energy' : ''}
+${contentType === 'Testimonial' ? '- Zoom slowly to create intimacy\n- Focus on authentic human moments\n- Build emotional resonance' : ''}
+${contentType === 'Engagement' ? '- Natural, relatable movement\n- Follow human subjects authentically\n- Create connection through motion' : ''}
+${contentType === 'Behind the Scenes' ? '- Documentary-style discovery\n- Authentic, unpolished feel\n- Reveal the process naturally' : ''}
+
+AVOID (Critical):
+- Generic stock video motion patterns
+- Overused zoom/pan transitions
+- Disorienting or nauseating camera work
+- Energy mismatched to content purpose
+- Excessive or distracting effects
+- Motion that obscures the message
+
+GOAL: Create strategic animation that enhances the message, aligns with platform behavior, and serves the content type's specific purpose. Every camera movement should have intent.
+`;
+  
+  // Generate video with enhanced prompt
   let operation = await ai.models.generateVideos({
     model,
-    prompt: `Cinematic motion animation. ${topic}. Smooth camera movement, professional cinematography, engaging visual storytelling.`,
+    prompt: videoPrompt,
     image: { 
       bytesBase64Encoded: base64Data, 
       mimeType: mimeType 
