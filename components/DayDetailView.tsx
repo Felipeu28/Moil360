@@ -4,7 +4,7 @@ import { ContentDay, GeneratedImage, GeneratedVideo, OverlaySettings, BrandDNA, 
 import { generateAIImage, generateAIVideo, translateContent } from '../services/geminiService';
 import { translations } from '../services/i18nService';
 import { 
-  Copy, ImageIcon, Sparkles, MessageSquare, RefreshCw, Check, Video, 
+  Copy, ImageIcon, LayoutGrid, Sparkles, MessageSquare, RefreshCw, Check, Video, 
   Edit3, Save, X, ChevronRight, ChevronLeft, Download, Film, Zap, Maximize, Move, Bold, Globe, Layers, Target, Hash, Type as TypeIcon, AlignCenter, LayoutGrid, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Wand2, Palette, Sliders, AlertCircle, AlignLeft, AlignRight, Square, Box, Sun, Trash2, RotateCcw, Undo2, LayoutTemplate, Grid3X3
 } from 'lucide-react';
 
@@ -30,6 +30,8 @@ const FONTS = [
   { name: 'Clean', family: 'Plus Jakarta Sans' },
   { name: 'Personal', family: 'Caveat' }
 ];
+
+const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
 
 const COLORS = [
   { name: 'White', value: '#FFFFFF' },
@@ -392,7 +394,7 @@ export const DayDetailView: React.FC<Props> = ({
     if (currentDayImages.length === 0) {
       setLoadingImg(true);
       try {
-        const url = await generateAIImage(day.image_prompts[0], undefined, undefined, imageEngine);
+        const url = await generateAIImage(day.image_prompts[0], undefined, undefined, imageEngine, aspectRatio);
         onImageGenerated({ dayIndex: day.day, promptIndex: 0, url, modelId: imageEngine, createdAt: Date.now() });
       } catch (err: any) { alert(err.message); } finally { setLoadingImg(false); }
       return;
@@ -401,7 +403,7 @@ export const DayDetailView: React.FC<Props> = ({
     setLoadingImg(true);
     try {
       const existingBase64 = currentDayImages.length > 0 ? currentDayImages[currentDayImages.length - 1].url : undefined;
-      const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existingBase64, imageEngine);
+      const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existingBase64, imageEngine, aspectRatio);
       onImageGenerated({ dayIndex: day.day, promptIndex: nextPromptIndex, url, modelId: imageEngine, createdAt: Date.now() });
       setShowImgEditPanel(false); setImgEditFeedback('');
     } catch (err: any) { alert(err.message); } finally { setLoadingImg(false); }
@@ -554,7 +556,38 @@ export const DayDetailView: React.FC<Props> = ({
                        </div>
                     </div>
                  </div>
-
+             
+  <div className="space-y-4">
+    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2">
+      <LayoutGrid className="w-4 h-4 text-indigo-500" /> Image Dimensions
+    </label>
+    <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl">
+      <button onClick={() => setAspectRatio('9:16')} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${aspectRatio === '9:16' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-3 h-4 border-2 border-current rounded-sm"></div>
+          <span className="text-[8px]">Portrait</span>
+          <span className="text-[7px] opacity-60">9:16</span>
+        </div>
+      </button>
+      <button onClick={() => setAspectRatio('16:9')} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${aspectRatio === '16:9' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-4 h-3 border-2 border-current rounded-sm"></div>
+          <span className="text-[8px]">Landscape</span>
+          <span className="text-[7px] opacity-60">16:9</span>
+        </div>
+      </button>
+      <button onClick={() => setAspectRatio('1:1')} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${aspectRatio === '1:1' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-3 h-3 border-2 border-current rounded-sm"></div>
+          <span className="text-[8px]">Square</span>
+          <span className="text-[7px] opacity-60">1:1</span>
+        </div>
+      </button>
+    </div>
+    <p className="text-[8px] text-slate-400 italic px-2">
+      Portrait: Instagram Stories, Reels | Landscape: YouTube, Blog | Square: Instagram Feed
+    </p>
+  </div>
                  {!showImgEditPanel ? (
                    <div className="flex gap-4 items-center">
                     <button onClick={triggerImageGen} disabled={loadingImg} className={`flex-[4] py-5 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl transition-all ${activeAsset ? 'bg-slate-900 text-white hover:bg-black' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
