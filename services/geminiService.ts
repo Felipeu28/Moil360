@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { BusinessInfo, ContentDay, MarketInsight, StrategyResult, MarketContext } from "../types";
 
@@ -31,7 +30,7 @@ const CONTENT_SCHEMA = {
           image_prompts: { 
             type: Type.ARRAY, 
             items: { type: Type.STRING },
-            description: "Detailed, cinematic AI image prompts that perfectly visualize the specific day's content topic." 
+            description: "CRITICAL: Each prompt MUST be a direct, literal, photographic representation of the day's SPECIFIC topic. The image should instantly communicate the exact subject matter discussed in the post. Example: If topic is 'The $200/Hour Technician', show a professional service technician in branded uniform holding diagnostic tablet with visible pricing. If topic is 'Bilingual Revenue Multiplier', show a Hispanic technician speaking with homeowner with 'Se Habla Español' visible on truck. NO abstract concepts, NO generic stock photos, NO metaphors. The viewer should know the post topic just by seeing the image." 
           },
           content_type: { type: Type.STRING },
           platform_strategy: { type: Type.STRING },
@@ -187,10 +186,20 @@ export async function generateContentStrategy(business: BusinessInfo): Promise<S
         ${brandContext}
         MARKET RESEARCH DATA: ${researchText}
         TASK: Generate a 30-day "Juan-Style" Content Strategy.
+        
+        CRITICAL IMAGE PROMPT REQUIREMENTS:
+        - Each image_prompt must LITERALLY show the exact topic being discussed
+        - NO abstract concepts or metaphors
+        - Include SPECIFIC visual elements that match the post content
+        - Show real scenarios, people, tools, or products mentioned in the topic
+        - Example: For "Bilingual Revenue Multiplier" → Show Hispanic technician with homeowner, 'Se Habla Español' on truck visible
+        - Example: For "$200/Hour Technician" → Show professional technician with pricing tablet/invoice clearly visible
+        - Example: For "Green Premium in Construction" → Show eco-friendly renovation with visible solar panels or insulation
+        
         ${JUAN_STYLE_PROMPT}
       `,
       config: {
-        systemInstruction: "Lead Content Architect. Strictly enforce aggressive white space.",
+        systemInstruction: "Lead Content Architect. Strictly enforce aggressive white space. Create image prompts that DIRECTLY visualize the specific post topic with concrete, literal representations.",
         responseMimeType: "application/json",
         responseSchema: CONTENT_SCHEMA,
       },
@@ -222,7 +231,7 @@ export async function regenerateDay(business: BusinessInfo, currentDay: ContentD
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     return ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `REGENERATE DAY ${currentDay.day}. FEEDBACK: "${feedback}". Maintain "Juan-Style". ${JUAN_STYLE_PROMPT}`,
+      contents: `REGENERATE DAY ${currentDay.day}. FEEDBACK: "${feedback}". Maintain "Juan-Style". Ensure image_prompts LITERALLY show the topic with specific, concrete visual elements. ${JUAN_STYLE_PROMPT}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: CONTENT_SCHEMA.properties.calendar.items,
@@ -253,21 +262,41 @@ export async function translateContent(hook: string, caption: string, targetLang
   return extractJson(response.text);
 }
 
-export async function generateAIImage(prompt: string, feedback?: string, existingBase64?: string, engine: 'gemini' | 'qwen' = 'gemini'): Promise<string> {
+export async function generateAIImage(
+  prompt: string, 
+  feedback?: string, 
+  existingBase64?: string, 
+  engine: 'gemini' | 'qwen' = 'gemini',
+  aspectRatio: '9:16' | '16:9' | '1:1' = '9:16'
+): Promise<string> {
   const response: GenerateContentResponse = await retryableCall(() => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const parts: any[] = [];
+    
     if (existingBase64 && feedback) {
+      // ✅ FIX: Properly format base64 for editing
       const clean = existingBase64.includes(',') ? existingBase64.split(',')[1] : existingBase64;
       parts.push({ inlineData: { data: clean, mimeType: 'image/png' } });
-      parts.push({ text: `EDIT: "${feedback}". Maintain composition.` });
+      parts.push({ text: `EDIT REQUEST: "${feedback}". Maintain composition and aspect ratio. Keep the core subject matter but apply the requested changes.` });
     } else {
-      parts.push({ text: `${prompt}. Professional commercial photography, 8k.` });
+      // Enhanced prompt for better topic representation
+      parts.push({ 
+        text: `${prompt}
+
+CRITICAL REQUIREMENTS:
+- This must be a direct, literal visual representation of the topic
+- Show specific people, tools, scenarios, or products mentioned
+- Professional commercial photography quality, 8k resolution
+- Cinematic lighting and composition
+- NO abstract concepts or metaphors
+- The viewer should immediately understand the post topic from the image alone` 
+      });
     }
+    
     return ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts },
-      config: { imageConfig: { aspectRatio: "9:16" } }
+      config: { imageConfig: { aspectRatio } }
     });
   });
 
@@ -278,30 +307,90 @@ export async function generateAIImage(prompt: string, feedback?: string, existin
 
 export async function generateAIVideo(imageUri: string, topic: string, strategy: string): Promise<{ url: string, uri: string, blob: Blob }> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const base64Data = imageUri.split(',')[1];
+  
+  // ✅ FIX: Properly extract and format base64 data
+  let base64Data: string;
+  let mimeType: string = 'image/png';
+  
+  if (imageUri.startsWith('data:')) {
+    // Data URI format
+    const matches = imageUri.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) {
+      throw new Error("Invalid data URI format");
+    }
+    mimeType = matches[1];
+    base64Data = matches[2];
+  } else if (imageUri.startsWith('http')) {
+    // URL format - fetch and convert
+    try {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      base64Data = btoa(String.fromCharCode(...bytes));
+      mimeType = blob.type || 'image/png';
+    } catch (err) {
+      throw new Error(`Failed to fetch image from URL: ${err}`);
+    }
+  } else {
+    // Assume it's raw base64
+    base64Data = imageUri;
+  }
+  
+  console.log(`🎬 Video generation starting with mimeType: ${mimeType}, base64 length: ${base64Data.length}`);
+  
   const model = 'veo-3.1-fast-generate-preview';
   
+  // ✅ FIX: Use correct API format with bytesBase64Encoded
   let operation = await ai.models.generateVideos({
     model,
-    prompt: `Cinematic motion. ${topic}.`,
-    image: { imageBytes: base64Data, mimeType: 'image/png' },
-    config: { numberOfVideos: 1, resolution: '1080p', aspectRatio: '9:16' }
+    prompt: `Cinematic motion animation. ${topic}. Smooth camera movement, professional cinematography, engaging visual storytelling.`,
+    image: { 
+      bytesBase64Encoded: base64Data, 
+      mimeType: mimeType 
+    },
+    config: { 
+      numberOfVideos: 1, 
+      resolution: '1080p', 
+      aspectRatio: '9:16' 
+    }
   });
   
-  while (!operation.done) {
-    await new Promise(r => setTimeout(r, 10000));
+  console.log(`🎬 Video operation started, polling for completion...`);
+  
+  // Poll for completion
+  let pollCount = 0;
+  const maxPolls = 60; // 10 minutes max
+  
+  while (!operation.done && pollCount < maxPolls) {
+    await new Promise(r => setTimeout(r, 10000)); // Poll every 10 seconds
     const pollingAi = new GoogleGenAI({ apiKey: process.env.API_KEY });
     operation = await pollingAi.operations.getVideosOperation({ operation: operation });
+    pollCount++;
+    
+    if (pollCount % 6 === 0) {
+      console.log(`🎬 Still rendering... (${pollCount * 10}s elapsed)`);
+    }
+  }
+  
+  if (!operation.done) {
+    throw new Error("Video generation timeout after 10 minutes");
   }
   
   const uri = operation.response?.generatedVideos?.[0]?.video?.uri;
-  if (!uri) throw new Error("Video render failed.");
+  if (!uri) {
+    console.error("Video operation response:", JSON.stringify(operation.response, null, 2));
+    throw new Error("Video render failed - no URI returned");
+  }
+  
+  console.log(`✅ Video generated successfully: ${uri}`);
   
   const downloadUrl = `${uri}&key=${process.env.API_KEY}`;
   
   try {
     const resp = await vanguardFetch(downloadUrl, {}, 4);
     const blob = await resp.blob();
+    console.log(`📥 Video downloaded: ${blob.size} bytes`);
     return { url: URL.createObjectURL(blob), uri, blob };
   } catch (err: any) {
     throw new Error(`Asset Retrieval Failed: ${err.message}`);
