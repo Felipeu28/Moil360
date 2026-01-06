@@ -269,14 +269,70 @@ export async function generateAIImage(
   engine: 'gemini' | 'qwen' = 'gemini',
   aspectRatio: '9:16' | '16:9' | '1:1' = '9:16'
 ): Promise<string> {
-  const response: GenerateContentResponse = await retryableCall(() => {
+  const response: GenerateContentResponse = await retryableCall(async () => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     const parts: any[] = [];
     
     if (existingBase64 && feedback) {
-      // ✅ FIX: Properly format base64 for editing
-      const clean = existingBase64.includes(',') ? existingBase64.split(',')[1] : existingBase64;
-      parts.push({ inlineData: { data: clean, mimeType: 'image/png' } });
+      let base64Data: string;
+      let mimeType: string = 'image/png';
+      
+      // Check if it's a URL or base64 data
+      if (existingBase64.startsWith('http')) {
+        // It's a URL - fetch and convert to base64
+        console.log(`📥 Fetching image for editing from: ${existingBase64}`);
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          
+          const response = await fetch(existingBase64, {
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-cache',
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: HTTP ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          const arrayBuffer = await blob.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+          
+          // Convert to base64 in chunks
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+            binary += String.fromCharCode.apply(null, Array.from(chunk));
+          }
+          base64Data = btoa(binary);
+          mimeType = blob.type || 'image/png';
+          
+          console.log(`✅ Image fetched and converted: ${base64Data.length} chars`);
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            throw new Error("Image fetch timeout. Please try again.");
+          }
+          throw new Error(`Cannot edit stored image: ${err.message}. Try generating a new image instead.`);
+        }
+      } else if (existingBase64.startsWith('data:')) {
+        // It's a data URI - extract base64
+        const matches = existingBase64.match(/^data:([^;]+);base64,(.+)$/);
+        if (!matches) {
+          throw new Error("Invalid data URI format");
+        }
+        mimeType = matches[1];
+        base64Data = matches[2];
+      } else {
+        // Assume it's raw base64
+        base64Data = existingBase64;
+      }
+      
+      parts.push({ inlineData: { data: base64Data, mimeType } });
       parts.push({ text: `EDIT REQUEST: "${feedback}". Maintain composition and aspect ratio. Keep the core subject matter but apply the requested changes.` });
     } else {
       // Enhanced prompt for better topic representation
