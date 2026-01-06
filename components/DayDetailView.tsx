@@ -417,7 +417,13 @@ export const DayDetailView: React.FC<Props> = ({
     setLoadingVid(true);
     try {
       const sourceImage = currentDayImages[currentDayImages.length - 1].url;
-      const { url, uri, blob } = await generateAIVideo(sourceImage, day.topic, day.platform_strategy);
+      const { url, uri, blob } = await generateAIVideo(
+  sourceImage, 
+  day.topic, 
+  day.platform_strategy,
+  day.content_type,  // NEW: strategic motion
+  brandDNA            // NEW: brand alignment
+);
       onVideoGenerated({ dayIndex: day.day, url, permanentUri: uri, version: currentDayVideos.length + 1, createdAt: Date.now(), modelId: videoEngine, blob });
     } catch (err: any) { 
       alert(err.message); 
