@@ -308,7 +308,6 @@ CRITICAL REQUIREMENTS:
 export async function generateAIVideo(imageUri: string, topic: string, strategy: string): Promise<{ url: string, uri: string, blob: Blob }> {
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
   
-  // ✅ FIX: Properly extract and format base64 data
   let base64Data: string;
   let mimeType: string = 'image/png';
   
@@ -321,20 +320,67 @@ export async function generateAIVideo(imageUri: string, topic: string, strategy:
     mimeType = matches[1];
     base64Data = matches[2];
   } else if (imageUri.startsWith('http')) {
-    // URL format - fetch and convert
+    // URL format - fetch and convert with CORS and timeout handling
     try {
-      const response = await fetch(imageUri);
+      console.log(`📥 Fetching image from URL: ${imageUri}`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const response = await fetch(imageUri, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-cache',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const blob = await response.blob();
+      console.log(`📦 Blob received: ${blob.size} bytes, type: ${blob.type}`);
+      
+      // Validate blob
+      if (blob.size === 0) {
+        throw new Error("Received empty blob from URL");
+      }
+      
+      if (blob.size > 20 * 1024 * 1024) { // 20MB limit
+        throw new Error("Image too large for video generation (max 20MB)");
+      }
+      
       const arrayBuffer = await blob.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
-      base64Data = btoa(String.fromCharCode(...bytes));
+      
+      // Convert to base64 in chunks for large files
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      base64Data = btoa(binary);
+      
       mimeType = blob.type || 'image/png';
-    } catch (err) {
-      throw new Error(`Failed to fetch image from URL: ${err}`);
+      console.log(`✅ Base64 conversion complete: ${base64Data.length} chars, mimeType: ${mimeType}`);
+      
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        throw new Error("Image fetch timeout (30s). Image may be too large or network too slow.");
+      }
+      throw new Error(`Failed to fetch image from URL: ${err.message}`);
     }
   } else {
     // Assume it's raw base64
     base64Data = imageUri;
+  }
+  
+  // Validate base64 length
+  if (base64Data.length === 0) {
+    throw new Error("Empty base64 data - image conversion failed");
   }
   
   console.log(`🎬 Video generation starting with mimeType: ${mimeType}, base64 length: ${base64Data.length}`);
