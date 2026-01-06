@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ContentDay, GeneratedImage, GeneratedVideo, OverlaySettings, BrandDNA, Language } from '../types';
 import { generateAIImage, generateAIVideo, translateContent } from '../services/geminiService';
 import { translations } from '../services/i18nService';
 import { 
   Copy, ImageIcon, LayoutGrid, Sparkles, MessageSquare, RefreshCw, Check, Video, 
-  Edit3, Save, X, ChevronRight, ChevronLeft, Download, Film, Zap, Maximize, Move, Bold, Globe, Layers, Target, Hash, Type as TypeIcon, AlignCenter, LayoutGrid, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Wand2, Palette, Sliders, AlertCircle, AlignLeft, AlignRight, Square, Box, Sun, Trash2, RotateCcw, Undo2, LayoutTemplate, Grid3X3
+  Edit3, Save, X, ChevronRight, ChevronLeft, Download, Film, Zap, Maximize, Move, Bold, Globe, Layers, Target, Hash, Type as TypeIcon, AlignCenter, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Wand2, Palette, Sliders, AlertCircle, AlignLeft, AlignRight, Square, Box, Sun, Trash2, RotateCcw, Undo2, LayoutTemplate, Grid3X3
 } from 'lucide-react';
 
 interface Props {
@@ -30,8 +29,6 @@ const FONTS = [
   { name: 'Clean', family: 'Plus Jakarta Sans' },
   { name: 'Personal', family: 'Caveat' }
 ];
-
-const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
 
 const COLORS = [
   { name: 'White', value: '#FFFFFF' },
@@ -103,6 +100,7 @@ export const DayDetailView: React.FC<Props> = ({
   const [imageEngine, setImageEngine] = useState<'gemini' | 'qwen'>('gemini');
   const [videoEngine, setVideoEngine] = useState<'gemini' | 'qwen'>('gemini');
   const [copied, setCopied] = useState<string | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
   
   const [targetLang, setTargetLang] = useState<'English' | 'Spanish' | 'Other'>('English');
   const [customLang, setCustomLang] = useState('');
