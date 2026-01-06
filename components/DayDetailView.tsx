@@ -288,7 +288,15 @@ export const DayDetailView: React.FC<Props> = ({
           img.onload = resolve; img.onerror = reject; img.src = activeAsset.rawUrl;
         });
         
-        const width = 1080; const height = 1920; 
+       // Dynamic dimensions based on aspect ratio
+let width: number, height: number;
+if (aspectRatio === '16:9') {
+  width = 1920; height = 1080;  // Landscape
+} else if (aspectRatio === '1:1') {
+  width = 1080; height = 1080;  // Square
+} else {
+  width = 1080; height = 1920;  // Portrait (9:16)
+}
         canvas.width = width; canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
