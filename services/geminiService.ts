@@ -438,12 +438,13 @@ CRITICAL REQUIREMENTS:
     }
     
   console.log(`📸 Gemini API call with aspectRatio: ${aspectRatio}`);
-return ai.models.generateContent({
-  model: 'gemini-2.5-flash-image',
-  contents: { parts },
-  config: { imageConfig: { aspectRatio } }
-});
-
+  return ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: { parts },
+    config: { imageConfig: { aspectRatio } }
+  });
+});  
+  
   const data = response.candidates?.[0]?.content?.parts.find(p => p.inlineData)?.inlineData?.data;
   if (!data) throw new Error("Rendering failed.");
   return `data:image/png;base64,${data}`;
@@ -457,7 +458,7 @@ export async function generateAIVideo(
   brandDNA?: BrandDNA
 ): Promise<{ url: string, uri: string, blob: Blob }> {
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
-  }
+  
   // Helper functions for strategic video motion
   const getMotionStyle = (type: string): string => {
     switch(type) {
