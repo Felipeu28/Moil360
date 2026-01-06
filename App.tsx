@@ -1,3 +1,7 @@
+if (typeof window === 'undefined') return null;
+
+console.log('APP RENDERED');
+
 import { vanguardFetch } from './services/geminiService';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
