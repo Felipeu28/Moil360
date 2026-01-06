@@ -1,7 +1,3 @@
-if (typeof window === 'undefined') return null;
-
-console.log('APP RENDERED');
-
 import { vanguardFetch } from './services/geminiService';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
@@ -17,6 +13,10 @@ import { generateContentStrategy, regenerateDay, fetchRemoteStrategy } from './s
 import { storage } from './services/storageService';
 import { translations } from './services/i18nService';
 import { Layers, LogOut, ChevronLeft, Settings, TrendingUp, Globe, Search, RefreshCw, Database, CloudOff, AlertCircle, Construction } from 'lucide-react';
+
+if (typeof window === 'undefined') return null;
+
+console.log('APP RENDERED');
 
 const safeDataURItoBlob = (dataURI: string) => {
   if (!dataURI.startsWith('data:')) return null;
