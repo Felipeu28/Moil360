@@ -437,12 +437,12 @@ CRITICAL REQUIREMENTS:
       });
     }
     
-    return ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: { parts },
-      config: { imageConfig: { aspectRatio } }
-    });
-  });
+  console.log(`📸 Gemini API call with aspectRatio: ${aspectRatio}`);
+return ai.models.generateContent({
+  model: 'gemini-2.5-flash-image',
+  contents: { parts },
+  config: { imageConfig: { aspectRatio } }
+});
 
   const data = response.candidates?.[0]?.content?.parts.find(p => p.inlineData)?.inlineData?.data;
   if (!data) throw new Error("Rendering failed.");
