@@ -822,6 +822,6 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
     console.log(`📥 Video downloaded: ${blob.size} bytes`);
     return { url: URL.createObjectURL(blob), uri, blob };
   } catch (err: any) {
-    throw new Error(`Asset Retrieval Failed: ${err.message}`);
+    throw new Error (`Asset Retrieval Failed: ${err.message}`);
   }
 }
