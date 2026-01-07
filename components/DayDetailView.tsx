@@ -276,112 +276,161 @@ export const DayDetailView: React.FC<Props> = ({
     };
   }, [draggingLayer, handleDragMove, handleDragEnd]);
 
-  const handleDownload = async () => {
-    if (!activeAsset || !currentLayers || currentLayers.length === 0) return;
-    try {
-      let finalUrl = activeAsset.rawUrl;
-      if (activeAsset.type === 'image') {
-        const canvas = document.createElement('canvas');
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        await new Promise((resolve, reject) => {
-          img.onload = resolve; img.onerror = reject; img.src = activeAsset.rawUrl;
+  // ============================================================================
+// WYSIWYG FIX: handleDownload function
+// ============================================================================
+// FILE: components/DayDetailView.tsx
+// REPLACE: Lines 281-378 (entire handleDownload function)
+// ============================================================================
+
+const handleDownload = async () => {
+  if (!activeAsset || !currentLayers || currentLayers.length === 0) return;
+  
+  console.log('🎨 WYSIWYG Download Started', {
+    aspectRatio,
+    previewWidth,
+    layerCount: currentLayers.length
+  });
+  
+  try {
+    let finalUrl = activeAsset.rawUrl;
+    if (activeAsset.type === 'image') {
+      const canvas = document.createElement('canvas');
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise((resolve, reject) => {
+        img.onload = resolve; img.onerror = reject; img.src = activeAsset.rawUrl;
+      });
+      
+      // ✅ FIX #1: Dynamic canvas dimensions based on aspect ratio
+      let width: number, height: number;
+      if (aspectRatio === '16:9') {
+        width = 1920; height = 1080;  // Landscape
+      } else if (aspectRatio === '1:1') {
+        width = 1080; height = 1080;  // Square
+      } else {
+        width = 1080; height = 1920;  // Portrait (9:16)
+      }
+      
+      console.log('📐 Canvas Dimensions:', { width, height, aspectRatio });
+      
+      canvas.width = width; 
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      // Apply visual filters
+      const filterObj = VISUAL_MODES.find(m => m.id === activeVisualMode);
+      if (filterObj?.id === 'noir') ctx.filter = 'grayscale(1) brightness(0.75) contrast(1.25)';
+      else if (filterObj?.id === 'vintage') ctx.filter = 'sepia(1) brightness(0.9) contrast(0.9) saturate(0.5)';
+      else if (filterObj?.id === 'neon') ctx.filter = 'hue-rotate(180deg) saturate(2) contrast(1.1)';
+      else if (filterObj?.id === 'chrome') ctx.filter = 'contrast(1.5) brightness(1.1) saturate(1.5) hue-rotate(15deg)';
+
+      ctx.drawImage(img, 0, 0, width, height);
+      ctx.filter = 'none';
+      await document.fonts.ready;
+
+      // ✅ FIX #2: Calculate scale factor from actual preview width
+      const previewActualWidth = previewRef.current?.offsetWidth || 320;
+      const scaleFactor = width / previewActualWidth;
+      
+      console.log('🔢 Scale Factor:', { previewActualWidth, scaleFactor });
+
+      for (const layer of currentLayers) {
+        if (!layer || !layer.text) continue;
+        
+        // ✅ FIX #3: Font size scales from preview dimensions
+        const fontSize = layer.size * scaleFactor;
+        const fontString = `${layer.isBold ? '900' : '500'} ${fontSize}px "${layer.font}"`;
+        await document.fonts.load(fontString);
+
+        console.log('🔤 Layer Font:', { 
+          layerSize: layer.size, 
+          fontSize, 
+          text: layer.text.substring(0, 20) 
         });
+
+        ctx.save();
+        ctx.font = fontString;
+        ctx.textAlign = 'center'; 
+        ctx.textBaseline = 'middle';
         
-       // Dynamic dimensions based on aspect ratio
-let width: number, height: number;
-if (aspectRatio === '16:9') {
-  width = 1920; height = 1080;  // Landscape
-} else if (aspectRatio === '1:1') {
-  width = 1080; height = 1080;  // Square
-} else {
-  width = 1080; height = 1920;  // Portrait (9:16)
-}
-        canvas.width = width; canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        const filterObj = VISUAL_MODES.find(m => m.id === activeVisualMode);
-        if (filterObj?.id === 'noir') ctx.filter = 'grayscale(1) brightness(0.75) contrast(1.25)';
-        else if (filterObj?.id === 'vintage') ctx.filter = 'sepia(1) brightness(0.9) contrast(0.9) saturate(0.5)';
-        else if (filterObj?.id === 'neon') ctx.filter = 'hue-rotate(180deg) saturate(2) contrast(1.1)';
-        else if (filterObj?.id === 'chrome') ctx.filter = 'contrast(1.5) brightness(1.1) saturate(1.5) hue-rotate(15deg)';
+        const maxWidth = width * 0.85; 
+        const lines = wrapText(ctx, layer.text, maxWidth);
+        const lineHeight = fontSize * 1.1; 
+        const targetX = (layer.pos.x / 100) * width;
+        const targetY = (layer.pos.y / 100) * height;
+        const padX = fontSize * 0.45; 
+        const padY = fontSize * 0.25; 
+        const lineSpacing = fontSize * 0.15;
 
-        ctx.drawImage(img, 0, 0, width, height);
-        ctx.filter = 'none';
-        await document.fonts.ready;
+        console.log('📍 Text Position:', { 
+          targetX, 
+          targetY, 
+          lines: lines.length,
+          lineHeight 
+        });
 
-        for (const layer of currentLayers) {
-          if (!layer || !layer.text) continue;
-          const fontSize = (layer.size / 400) * width;
-          const fontString = `${layer.isBold ? '900' : '500'} ${fontSize}px "${layer.font}"`;
-          await document.fonts.load(fontString);
-
+        // Glass background rendering
+        if (layer.glassStyle && layer.glassStyle !== 'none') {
           ctx.save();
-          ctx.font = fontString;
-          ctx.textAlign = 'center'; 
-          ctx.textBaseline = 'middle';
-          
-          const maxWidth = width * 0.85; 
-          const lines = wrapText(ctx, layer.text, maxWidth);
-          const lineHeight = fontSize * 1.1; 
-          const targetX = (layer.pos.x / 100) * width;
-          const targetY = (layer.pos.y / 100) * height;
-          const padX = fontSize * 0.45; const padY = fontSize * 0.25; const lineSpacing = fontSize * 0.15;
+          if (layer.glassStyle === 'glass-light') ctx.fillStyle = 'rgba(255,255,255,0.25)';
+          else if (layer.glassStyle === 'glass-dark') ctx.fillStyle = 'rgba(0,0,0,0.55)';
+          else if (layer.glassStyle === 'glass-tint') ctx.fillStyle = 'rgba(79,70,229,0.35)';
 
-          if (layer.glassStyle && layer.glassStyle !== 'none') {
-            ctx.save();
-            if (layer.glassStyle === 'glass-light') ctx.fillStyle = 'rgba(255,255,255,0.25)';
-            else if (layer.glassStyle === 'glass-dark') ctx.fillStyle = 'rgba(0,0,0,0.55)';
-            else if (layer.glassStyle === 'glass-tint') ctx.fillStyle = 'rgba(79,70,229,0.35)';
-
-            const totalBlockHeight = (lines.length * lineHeight) + ((lines.length - 1) * lineSpacing);
-            lines.forEach((l, i) => {
-              const metrics = ctx.measureText(l.trim().toUpperCase());
-              const bgW = metrics.width + (padX * 2);
-              const bgH = lineHeight + (padY * 2);
-              const yOffsetFromCenter = (i * (lineHeight + lineSpacing)) - (totalBlockHeight / 2) + (lineHeight / 2);
-              ctx.fillRect(targetX - bgW / 2, targetY + yOffsetFromCenter - bgH / 2, bgW, bgH);
-              ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-              ctx.lineWidth = 2;
-              ctx.strokeRect(targetX - bgW / 2, targetY + yOffsetFromCenter - bgH / 2, bgW, bgH);
-            });
-            ctx.restore();
-          }
-
-          const totalBlockHeightText = (lines.length * lineHeight) + ((lines.length - 1) * lineSpacing);
+          const totalBlockHeight = (lines.length * lineHeight) + ((lines.length - 1) * lineSpacing);
           lines.forEach((l, i) => {
-            const yOffsetFromCenter = (i * (lineHeight + lineSpacing)) - (totalBlockHeightText / 2) + (lineHeight / 2);
-            const textToDraw = l.trim().toUpperCase();
-            ctx.save();
-            if (layer.hasShadow) {
-              ctx.shadowColor = 'rgba(0,0,0,0.85)';
-              ctx.shadowBlur = ((layer.shadowBlur || 15) / 100) * fontSize;
-              ctx.shadowOffsetY = 8;
-            }
-            if (layer.strokeWidth > 0) {
-              ctx.strokeStyle = layer.strokeColor || '#000000';
-              ctx.lineWidth = ((layer.strokeWidth || 0) / 100) * fontSize;
-              ctx.lineJoin = 'round';
-              ctx.strokeText(textToDraw, targetX, targetY + yOffsetFromCenter);
-            }
-            ctx.fillStyle = layer.color;
-            ctx.fillText(textToDraw, targetX, targetY + yOffsetFromCenter);
-            ctx.restore();
+            const metrics = ctx.measureText(l.trim().toUpperCase());
+            const bgW = metrics.width + (padX * 2);
+            const bgH = lineHeight + (padY * 2);
+            const yOffsetFromCenter = (i * (lineHeight + lineSpacing)) - (totalBlockHeight / 2) + (lineHeight / 2);
+            ctx.fillRect(targetX - bgW / 2, targetY + yOffsetFromCenter - bgH / 2, bgW, bgH);
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(targetX - bgW / 2, targetY + yOffsetFromCenter - bgH / 2, bgW, bgH);
           });
           ctx.restore();
         }
-        finalUrl = canvas.toDataURL('image/png', 1.0);
+
+        // Text rendering
+        const totalBlockHeightText = (lines.length * lineHeight) + ((lines.length - 1) * lineSpacing);
+        lines.forEach((l, i) => {
+          const yOffsetFromCenter = (i * (lineHeight + lineSpacing)) - (totalBlockHeightText / 2) + (lineHeight / 2);
+          const textToDraw = l.trim().toUpperCase();
+          ctx.save();
+          if (layer.hasShadow) {
+            ctx.shadowColor = 'rgba(0,0,0,0.85)';
+            ctx.shadowBlur = ((layer.shadowBlur || 15) / 100) * fontSize;
+            ctx.shadowOffsetY = 8;
+          }
+          if (layer.strokeWidth > 0) {
+            ctx.strokeStyle = layer.strokeColor || '#000000';
+            ctx.lineWidth = ((layer.strokeWidth || 0) / 100) * fontSize;
+            ctx.lineJoin = 'round';
+            ctx.strokeText(textToDraw, targetX, targetY + yOffsetFromCenter);
+          }
+          ctx.fillStyle = layer.color;
+          ctx.fillText(textToDraw, targetX, targetY + yOffsetFromCenter);
+          ctx.restore();
+        });
+        ctx.restore();
       }
-      const link = document.createElement('a');
-      link.href = finalUrl;
-      link.download = `C360_Day${day.day}_V${assetIndex+1}.${activeAsset.type === 'image' ? 'png' : 'mp4'}`;
-      link.click();
-    } catch (err) { 
-      console.error("Export Failed:", err);
-      alert("Failed to compile final visual assets.");
+      
+      finalUrl = canvas.toDataURL('image/png', 1.0);
+      console.log('✅ Canvas rendered successfully');
     }
-  };
+    
+    const link = document.createElement('a');
+    link.href = finalUrl;
+    link.download = `C360_Day${day.day}_V${assetIndex+1}.${activeAsset.type === 'image' ? 'png' : 'mp4'}`;
+    link.click();
+    
+    console.log('💾 Download triggered:', link.download);
+  } catch (err) { 
+    console.error("❌ Export Failed:", err);
+    alert("Failed to compile final visual assets.");
+  }
+};
 
   const handleTranslate = async () => {
     const langKey = targetLang === 'Other' ? customLang : targetLang;
