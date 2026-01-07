@@ -824,4 +824,3 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
   } catch (err: any) {
     throw new Error (`Asset Retrieval Failed: ${err.message}`);
   }
-}
