@@ -450,14 +450,155 @@ CRITICAL REQUIREMENTS:
   return `data:image/png;base64,${data}`;
 }
 
+// ============================================================================
+// GEMINI SERVICE - QWEN ROUTING ADDITIONS
+// ============================================================================
+// FILE: services/geminiService.ts
+// CHANGES: Add Qwen routing to generateAIImage and generateAIVideo
+// ============================================================================
+
+// ========== ADD THIS IMPORT AT THE TOP (line 3) ==========
+import { generateQwenImage, generateQwenVideo } from './qwenService';
+
+// ========== REPLACE generateAIImage function (starting around line 266) ==========
+
+export async function generateAIImage(
+  prompt: string, 
+  feedback?: string, 
+  existingBase64?: string, 
+  engine: 'gemini' | 'qwen' = 'gemini',
+  aspectRatio: '9:16' | '16:9' | '1:1' = '9:16'
+): Promise<string> {
+  
+  // ✅ NEW: Route to Qwen if selected
+  if (engine === 'qwen') {
+    console.log('🔀 Routing to Qwen image engine');
+    return generateQwenImage(prompt, aspectRatio);
+  }
+  
+  // ✅ Existing Gemini logic
+  console.log('🔀 Routing to Gemini image engine');
+  
+  const response: GenerateContentResponse = await retryableCall(async () => {
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
+    const parts: any[] = [];
+    
+    if (existingBase64 && feedback) {
+      let base64Data: string;
+      let mimeType: string = 'image/png';
+      
+      // Check if it's a URL or base64 data
+      if (existingBase64.startsWith('http')) {
+        // It's a URL - fetch and convert to base64
+        console.log(`📥 Fetching image for editing from: ${existingBase64}`);
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          
+          const response = await fetch(existingBase64, {
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-cache',
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: HTTP ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          const arrayBuffer = await blob.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+          
+          // Convert to base64 in chunks
+          let binary = '';
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+            binary += String.fromCharCode.apply(null, Array.from(chunk));
+          }
+          base64Data = btoa(binary);
+          mimeType = blob.type || 'image/png';
+          
+          console.log(`✅ Image fetched and converted: ${base64Data.length} chars`);
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            throw new Error("Image fetch timeout. Please try again.");
+          }
+          throw new Error(`Cannot edit stored image: ${err.message}. Try generating a new image instead.`);
+        }
+      } else if (existingBase64.startsWith('data:')) {
+        // It's a data URI - extract base64
+        const matches = existingBase64.match(/^data:([^;]+);base64,(.+)$/);
+        if (!matches) {
+          throw new Error("Invalid data URI format");
+        }
+        mimeType = matches[1];
+        base64Data = matches[2];
+      } else {
+        // Assume it's raw base64
+        base64Data = existingBase64;
+      }
+      
+      parts.push({ inlineData: { data: base64Data, mimeType } });
+      parts.push({ text: `EDIT REQUEST: "${feedback}". Maintain composition and aspect ratio. Keep the core subject matter but apply the requested changes.` });
+    } else {
+      // Enhanced prompt for better topic representation
+      parts.push({ 
+        text: `${prompt}
+
+CRITICAL REQUIREMENTS:
+- This must be a direct, literal visual representation of the topic
+- Show specific people, tools, scenarios, or products mentioned
+- Professional commercial photography quality, 8k resolution
+- Cinematic lighting and composition
+- NO abstract concepts or metaphors
+- The viewer should immediately understand the post topic from the image alone` 
+      });
+    }
+    
+    console.log(`📸 Gemini API call with aspectRatio: ${aspectRatio}`);
+    return ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: { parts },
+      config: { imageConfig: { aspectRatio } }
+    });
+  });  
+  
+  const data = response.candidates?.[0]?.content?.parts.find(p => p.inlineData)?.inlineData?.data;
+  if (!data) throw new Error("Rendering failed.");
+  return `data:image/png;base64,${data}`;
+}
+
+
+// ========== REPLACE generateAIVideo function signature (around line 309) ==========
+
 export async function generateAIVideo(
   imageUri: string, 
   topic: string, 
   strategy: string,
   contentType?: string,
-  brandDNA?: BrandDNA
+  brandDNA?: BrandDNA,
+  engine: 'gemini' | 'qwen' = 'gemini'  // ✅ NEW: Add engine parameter
 ): Promise<{ url: string, uri: string, blob: Blob }> {
+  
+  // ✅ NEW: Route to Qwen if selected
+  if (engine === 'qwen') {
+    console.log('🔀 Routing to Qwen video engine');
+    const result = await generateQwenVideo(imageUri, topic);
+    return { ...result, uri: result.url }; // Qwen doesn't have permanent URI
+  }
+  
+  // ✅ Existing Gemini logic (no changes needed below this line)
+  console.log('🔀 Routing to Gemini video engine');
+  
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
+  
+  // ... rest of the existing Gemini video generation code stays the same ...
+  // (Keep all the existing code from here down)
+}
   
   // Helper functions for strategic video motion
   const getMotionStyle = (type: string): string => {
