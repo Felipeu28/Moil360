@@ -477,22 +477,24 @@ const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existin
     try {
       const sourceImage = currentDayImages[currentDayImages.length - 1].url;
       const { url, uri, blob } = await generateAIVideo(
-  sourceImage, 
-  day.topic, 
-  day.platform_strategy,
-  day.content_type,  // NEW: strategic motion
-  brandDNA            // NEW: brand alignment
-);
+      sourceImage, 
+      day.topic, 
+      day.platform_strategy,
+      day.content_type,
+      brandDNA,
+      videoEngine  // ← ADD THIS LINE
+    );
+      
       onVideoGenerated({ dayIndex: day.day, url, permanentUri: uri, version: currentDayVideos.length + 1, createdAt: Date.now(), modelId: videoEngine, blob });
-    } catch (err: any) { 
-      alert(err.message); 
-      if (err.message && err.message.includes("Requested entity was not found")) {
-         if (typeof (window as any).aistudio !== 'undefined') {
-            await (window as any).aistudio.openSelectKey();
-         }
-      }
-    } finally { setLoadingVid(false); }
-  };
+  } catch (err: any) { 
+    alert(err.message); 
+    if (err.message && err.message.includes("Requested entity was not found")) {
+       if (typeof (window as any).aistudio !== 'undefined') {
+          await (window as any).aistudio.openSelectKey();
+       }
+    }
+  } finally { setLoadingVid(false); }
+};
 
   const startManualEdit = (field: string, value: string) => { setEditField(field); setEditValue(value); };
   const saveManualEdit = () => {
