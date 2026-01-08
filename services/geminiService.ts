@@ -720,6 +720,30 @@ export async function generateAIVideo(
   
   const model = 'veo-3.1-fast-generate-preview';
   
+  // ✅ CRITICAL DEBUG: Verify model availability
+  console.log('🔍 Checking Veo model availability...');
+  try {
+    const modelsResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}?key=${import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY}`,
+      { method: 'GET' }
+    );
+    
+    if (modelsResponse.ok) {
+      const modelInfo = await modelsResponse.json();
+      console.log('✅ Veo model available:', {
+        displayName: modelInfo.displayName,
+        supportedMethods: modelInfo.supportedGenerationMethods
+      });
+    } else {
+      const errorText = await modelsResponse.text();
+      console.error('❌ Veo model check failed:', modelsResponse.status, errorText);
+      throw new Error(`Veo model '${model}' not available. Status: ${modelsResponse.status}. Your API key may not have access to video generation. Please check: 1) API key has Veo access, 2) Billing is enabled, 3) Region restrictions.`);
+    }
+  } catch (checkErr: any) {
+    console.error('⚠️ Model availability check failed:', checkErr.message);
+    // Continue anyway - the actual call will fail with better error
+  }
+  
   // Enhanced strategic video prompt
   const videoPrompt = `
 STRATEGIC ANIMATED VIDEO BRIEF
@@ -770,49 +794,117 @@ AVOID (Critical):
 GOAL: Create strategic animation that enhances the message, aligns with platform behavior, and serves the content type's specific purpose. Every camera movement should have intent.
 `;
   
-  // Generate video with enhanced prompt
+  // ✅ FIX: Direct REST API call instead of SDK (SDK has issues with Veo)
+  console.log('🎬 Calling Gemini Video API directly (bypassing SDK)...');
+  
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
+  
   let operation;
   try {
-    operation = await ai.models.generateVideos({
-      model,
-      prompt: videoPrompt,
-      image: { 
-        bytesBase64Encoded: base64Data, 
-        mimeType: mimeType 
-      },
-      config: { 
-        numberOfVideos: 1, 
-        resolution: '1080p', 
-        aspectRatio: '9:16' 
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [
+              { text: videoPrompt },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data
+                }
+              }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+          }
+        })
       }
-    });
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ Direct API Error:', errorData);
+      throw new Error(JSON.stringify(errorData));
+    }
+
+    const operationData = await response.json();
+    operation = {
+      name: operationData.name,
+      done: operationData.done || false,
+      metadata: operationData.metadata,
+      response: operationData.response
+    };
+    
+    console.log('✅ Video operation started:', operation.name);
+    
   } catch (apiErr: any) {
+    // ✅ CRITICAL DEBUG: Log full error structure
     console.error('❌ Gemini API Error Details:', {
       message: apiErr.message,
       status: apiErr.status,
       statusText: apiErr.statusText,
-      response: apiErr.response,
-      details: apiErr.details || apiErr.error
+      name: apiErr.name,
+      stack: apiErr.stack?.split('\n')[0]
     });
     
-    // Try to extract useful error message
-    let errorMsg = 'Video generation failed';
-    if (apiErr.message) errorMsg = apiErr.message;
-    if (apiErr.details) errorMsg += `: ${JSON.stringify(apiErr.details)}`;
+    // Try to extract error response body if it exists
+    if (apiErr.response) {
+      try {
+        const responseText = await apiErr.response.text();
+        console.error('📋 Gemini API Response Body:', responseText);
+      } catch (e) {
+        console.error('📋 Response body could not be parsed');
+      }
+    }
     
-    throw new Error(`Gemini Video API rejected request: ${errorMsg}. Image size: ${(base64Data.length / 1024).toFixed(0)}KB, mimeType: ${mimeType}`);
+    // Check for specific error types
+    if (apiErr.message?.includes('quota')) {
+      throw new Error(`Gemini API Quota Exceeded. Please check your API key limits and billing.`);
+    }
+    
+    if (apiErr.message?.includes('Invalid argument') || apiErr.message?.includes('400')) {
+      throw new Error(`Gemini rejected the video request. This may be due to: 1) Image size still too large (${(base64Data.length / 1024).toFixed(0)}KB), 2) Model not available for your API key, 3) Invalid parameters. Original error: ${apiErr.message}`);
+    }
+    
+    // Generic error with details
+    let errorMsg = apiErr.message || 'Video generation failed';
+    throw new Error(`Gemini Video API Error: ${errorMsg}. Image size: ${(base64Data.length / 1024).toFixed(0)}KB, mimeType: ${mimeType}`);
   }
   
   console.log(`🎬 Video operation started, polling for completion...`);
   
-  // Poll for completion
+  // Poll for completion using REST API
   let pollCount = 0;
   const maxPolls = 60; // 10 minutes max
   
   while (!operation.done && pollCount < maxPolls) {
     await new Promise(r => setTimeout(r, 10000)); // Poll every 10 seconds
-    const pollingAi = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
-    operation = await pollingAi.operations.getVideosOperation({ operation: operation });
+    
+    // Poll operation status via REST API
+    const statusResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/${operation.name}?key=${apiKey}`,
+      { method: 'GET' }
+    );
+    
+    if (!statusResponse.ok) {
+      console.error('⚠️ Status check failed:', statusResponse.status);
+      pollCount++;
+      continue;
+    }
+    
+    const statusData = await statusResponse.json();
+    operation.done = statusData.done || false;
+    operation.response = statusData.response;
+    
     pollCount++;
     
     if (pollCount % 6 === 0) {
