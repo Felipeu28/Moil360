@@ -924,8 +924,7 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
   
   console.log(`✅ Video generated successfully: ${uri}`);
   
-  // ✅ FIX: Use import.meta.env instead of process.env for Vite
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
+  // Download the video using the URI with API key
   const downloadUrl = `${uri}&key=${apiKey}`;
   
   try {
