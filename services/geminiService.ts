@@ -808,21 +808,21 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [
-              { text: videoPrompt },
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data
-                }
-              }
-            ]
-          }]
-          // Note: Veo API does not support generationConfig
-        })
+        // ✅ CORRECT - No generationConfig for Veo
+body: JSON.stringify({
+  contents: [{
+    role: 'user',
+    parts: [
+      { text: videoPrompt },
+      {
+        inline_data: {
+          mime_type: mimeType,
+          data: base64Data
+        }
+      }
+    ]
+  }]
+})
       }
     );
 
