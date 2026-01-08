@@ -532,7 +532,22 @@ const App: React.FC = () => {
                     }} 
                     onDeleteAsset={handleDeleteAsset}
                     onRegenerate={handleRegenerate} 
-                    onManualEdit={() => {}}
+                    onManualEdit={(updatedDay: ContentDay) => {
+                    if (!strategy || !activeProject) return;
+                        // Update the calendar with the edited day
+                    const newCalendar = strategy.calendar.map(d => 
+                    d.day === updatedDay.day ? updatedDay : d
+                    );
+                      
+                    // Update strategy in state
+                      const updatedStrategy = { ...strategy, calendar: newCalendar };
+                      setStrategy(updatedStrategy);
+                      
+                      // Save to database immediately
+                      storage.saveStrategy(activeProject.id, updatedStrategy, true)
+                        .then(() => console.log('✅ Text edits saved to database'))
+                        .catch(err => console.error('❌ Failed to save edits:', err));
+                    }}
                     visualLayers={visualLayers}
                     onUpdateLayers={handleUpdateLayers}
                   />
