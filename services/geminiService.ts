@@ -552,6 +552,32 @@ export async function generateAIVideo(
       const arrayBuffer = await blob.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       
+      // ✅ CRITICAL FIX: Detect mimeType from magic bytes if blob.type is missing
+      if (!blob.type || blob.type === '' || blob.type === 'application/octet-stream') {
+        console.warn('⚠️ Blob has no type, detecting from magic bytes...');
+        
+        // PNG magic bytes: 89 50 4E 47
+        if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+          mimeType = 'image/png';
+        }
+        // JPEG magic bytes: FF D8 FF
+        else if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+          mimeType = 'image/jpeg';
+        }
+        // WebP magic bytes: 52 49 46 46 ... 57 45 42 50
+        else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[8] === 0x57 && bytes[9] === 0x45) {
+          mimeType = 'image/webp';
+        }
+        else {
+          console.error('❌ Unknown image format, defaulting to PNG');
+          mimeType = 'image/png';
+        }
+        
+        console.log(`✅ Detected mimeType: ${mimeType}`);
+      } else {
+        mimeType = blob.type;
+      }
+      
       // Convert to base64 in chunks for large files
       let binary = '';
       const chunkSize = 8192;
@@ -561,7 +587,6 @@ export async function generateAIVideo(
       }
       base64Data = btoa(binary);
       
-      mimeType = blob.type || 'image/png';
       console.log(`✅ Base64 conversion complete: ${base64Data.length} chars, mimeType: ${mimeType}`);
       
     } catch (err: any) {
@@ -580,7 +605,28 @@ export async function generateAIVideo(
     throw new Error("Empty base64 data - image conversion failed");
   }
   
+  // ✅ CRITICAL FIX: Validate mimeType before API call
+  if (!mimeType || mimeType === '') {
+    console.warn('⚠️ Missing mimeType, defaulting to image/png');
+    mimeType = 'image/png';
+  }
+  
+  // ✅ CRITICAL FIX: Ensure mimeType is valid for Gemini
+  const validMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+  if (!validMimeTypes.includes(mimeType.toLowerCase())) {
+    console.warn(`⚠️ Invalid mimeType '${mimeType}', converting to image/png`);
+    mimeType = 'image/png';
+  }
+  
   console.log(`🎬 Video generation starting with mimeType: ${mimeType}, base64 length: ${base64Data.length}`);
+  
+  // ✅ CRITICAL DEBUG: Log the data structure being sent
+  console.log('📤 Sending to Gemini API:', {
+    hasBase64: !!base64Data,
+    base64Length: base64Data.length,
+    mimeType: mimeType,
+    isValidBase64: /^[A-Za-z0-9+/]+={0,2}$/.test(base64Data.substring(0, 100))
+  });
   
   const model = 'veo-3.1-fast-generate-preview';
   
