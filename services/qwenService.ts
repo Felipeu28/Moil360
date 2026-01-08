@@ -1,43 +1,33 @@
 // ============================================================================
 // QWEN SERVICE - Image & Video Generation via Qwen API
 // ============================================================================
-// FILE: services/qwenService.ts (NEW FILE)
+// FILE: services/qwenService.ts
+// UPDATED: Now uses Vercel serverless proxy to bypass CORS
 // ============================================================================
 
 /**
  * Qwen Image & Video Generation Service
- * Provides backup AI engines for image and video generation
+ * Routes through Vercel serverless proxy to avoid CORS restrictions
  */
 
-interface QwenImageRequest {
-  model: string;
-  prompt: string;
-  size: string;
-  n: number;
-}
-
-interface QwenImageResponse {
-  data: Array<{
-    url?: string;
-    b64_json?: string;
-  }>;
-}
+// Determine proxy URL based on environment
+const getProxyUrl = () => {
+  if (typeof window === 'undefined') return '/api'; // SSR
+  return window.location.origin + '/api'; // Browser
+};
 
 /**
- * Generate image using Qwen VL API
+ * Generate image using Qwen VL API via Vercel proxy
  */
 export async function generateQwenImage(
   prompt: string,
   aspectRatio: '9:16' | '16:9' | '1:1' = '9:16'
 ): Promise<string> {
-  console.log('🎨 Qwen Image Generation:', { prompt: prompt.substring(0, 50), aspectRatio });
+  console.log('🎨 Qwen Image Generation (via Vercel proxy):', { 
+    prompt: prompt.substring(0, 50), 
+    aspectRatio 
+  });
   
-  const apiKey = import.meta.env.VITE_QWEN_API_KEY || (process as any).env.VITE_QWEN_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('QWEN_API_KEY not configured. Please add VITE_QWEN_API_KEY to Vercel environment variables.');
-  }
-
   // Map aspect ratios to Qwen sizes
   const sizeMap = {
     '9:16': '1024x1792',   // Portrait
@@ -48,54 +38,61 @@ export async function generateQwenImage(
   const size = sizeMap[aspectRatio];
 
   try {
-    const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis', {
+    // Step 1: Start generation via proxy
+    const proxyUrl = getProxyUrl();
+    const initResponse = await fetch(`${proxyUrl}/qwen-proxy`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'X-DashScope-Async': 'enable'
       },
       body: JSON.stringify({
-        model: 'wanx-v1',
-        input: {
-          prompt: prompt,
-          negative_prompt: 'blurry, low quality, distorted, ugly, bad anatomy'
-        },
-        parameters: {
-          size: size,
-          n: 1,
-          seed: Math.floor(Math.random() * 1000000)
+        endpoint: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
+        body: {
+          model: 'wanx-v1',
+          input: {
+            prompt: prompt,
+            negative_prompt: 'blurry, low quality, distorted, ugly, bad anatomy'
+          },
+          parameters: {
+            size: size,
+            n: 1,
+            seed: Math.floor(Math.random() * 1000000)
+          }
         }
       })
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Qwen API Error ${response.status}: ${errorText}`);
+    if (!initResponse.ok) {
+      const errorData = await initResponse.json();
+      throw new Error(`Qwen Proxy Error ${initResponse.status}: ${errorData.error || 'Unknown'}`);
     }
 
-    const data = await response.json();
+    const initData = await initResponse.json();
+    const taskId = initData.output?.task_id;
     
-    // Qwen uses async generation, need to poll for result
-    const taskId = data.output?.task_id;
     if (!taskId) {
       throw new Error('No task ID returned from Qwen API');
     }
 
-    console.log('⏳ Qwen task started:', taskId);
+    console.log('⏳ Qwen image task started:', taskId);
 
-    // Poll for completion
+    // Step 2: Poll for completion via status proxy
     let attempts = 0;
     const maxAttempts = 60; // 5 minutes max
     
     while (attempts < maxAttempts) {
       await new Promise(r => setTimeout(r, 5000)); // Wait 5 seconds
       
-      const statusResponse = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`
-        }
-      });
+      const statusResponse = await fetch(
+        `${proxyUrl}/qwen-status?taskId=${taskId}`,
+        { method: 'GET' }
+      );
+
+      if (!statusResponse.ok) {
+        console.warn(`⚠️ Status check failed (attempt ${attempts + 1})`);
+        attempts++;
+        continue;
+      }
 
       const statusData = await statusResponse.json();
       
@@ -135,51 +132,48 @@ export async function generateQwenImage(
 }
 
 /**
- * Generate video using Qwen multimodal API
- * Note: Qwen's video API is different from Gemini - this is a placeholder
+ * Generate video using Qwen CogVideoX API via Vercel proxy
  */
 export async function generateQwenVideo(
   imageBase64: string,
   prompt: string
 ): Promise<{ url: string, blob: Blob }> {
-  console.log('🎬 Qwen Video Generation:', { prompt: prompt.substring(0, 50) });
+  console.log('🎬 Qwen Video Generation (via Vercel proxy):', { 
+    prompt: prompt.substring(0, 50) 
+  });
   
-  const apiKey = import.meta.env.VITE_QWEN_API_KEY || (process as any).env.VITE_QWEN_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('QWEN_API_KEY not configured. Please add VITE_QWEN_API_KEY to Vercel environment variables.');
-  }
-
   try {
-    // Note: Qwen video generation API endpoint
-    // This is a simplified version - adjust based on actual Qwen video API
-    const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/image2video/generation', {
+    const proxyUrl = getProxyUrl();
+    
+    // Step 1: Start video generation
+    const initResponse = await fetch(`${proxyUrl}/qwen-proxy`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'X-DashScope-Async': 'enable'
       },
       body: JSON.stringify({
-        model: 'video-generation',
-        input: {
-          image_url: imageBase64, // May need to upload to Qwen storage first
-          prompt: prompt
-        },
-        parameters: {
-          duration: 6, // seconds
-          fps: 30
+        endpoint: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/image2video/generation',
+        body: {
+          model: 'video-generation',
+          input: {
+            image_url: imageBase64, // May need adjustment based on actual API
+            prompt: prompt
+          },
+          parameters: {
+            duration: 6, // seconds
+            fps: 30
+          }
         }
       })
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Qwen Video API Error ${response.status}: ${errorText}`);
+    if (!initResponse.ok) {
+      const errorData = await initResponse.json();
+      throw new Error(`Qwen Video Proxy Error ${initResponse.status}: ${errorData.error || 'Unknown'}`);
     }
 
-    const data = await response.json();
-    const taskId = data.output?.task_id;
+    const initData = await initResponse.json();
+    const taskId = initData.output?.task_id;
     
     if (!taskId) {
       throw new Error('No task ID returned from Qwen Video API');
@@ -187,18 +181,23 @@ export async function generateQwenVideo(
 
     console.log('⏳ Qwen video task started:', taskId);
 
-    // Poll for completion
+    // Step 2: Poll for completion
     let attempts = 0;
     const maxAttempts = 120; // 10 minutes max for video
     
     while (attempts < maxAttempts) {
       await new Promise(r => setTimeout(r, 5000)); // Wait 5 seconds
       
-      const statusResponse = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`
-        }
-      });
+      const statusResponse = await fetch(
+        `${proxyUrl}/qwen-status?taskId=${taskId}`,
+        { method: 'GET' }
+      );
+
+      if (!statusResponse.ok) {
+        console.warn(`⚠️ Video status check failed (attempt ${attempts + 1})`);
+        attempts++;
+        continue;
+      }
 
       const statusData = await statusResponse.json();
       
