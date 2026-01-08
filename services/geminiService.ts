@@ -820,12 +820,8 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
                 }
               }
             ]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-          }
+          }]
+          // Note: Veo API does not support generationConfig
         })
       }
     );
