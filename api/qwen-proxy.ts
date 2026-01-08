@@ -39,7 +39,15 @@ export default async function handler(
     }
 
     // Use API key from environment or request
-    const QWEN_API_KEY = apiKey || process.env.QWEN_API_KEY || process.env.VITE_QWEN_API_KEY;
+    // ✅ FIXED - Vercel uses different env var access
+const QWEN_API_KEY = apiKey || process.env.QWEN_API_KEY;
+
+// Also add debug logging
+console.log('🔑 API Key Status:', {
+  fromRequest: !!apiKey,
+  fromEnv: !!process.env.QWEN_API_KEY,
+  keyPreview: QWEN_API_KEY ? `${QWEN_API_KEY.substring(0, 8)}...` : 'MISSING'
+});
     
     if (!QWEN_API_KEY) {
       return res.status(401).json({ 
