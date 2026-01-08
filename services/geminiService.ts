@@ -582,11 +582,68 @@ export async function generateAIVideo(
         throw new Error("Image too large for video generation (max 20MB)");
       }
       
-      const arrayBuffer = await blob.arrayBuffer();
+      // ✅ CRITICAL FIX: Compress large images before video generation
+      // Gemini has undocumented ~1.5MB limit for video generation
+      let finalBlob = blob;
+      if (blob.size > 1024 * 1024) { // If > 1MB, compress
+        console.log(`⚙️ Compressing image from ${(blob.size / 1024 / 1024).toFixed(2)}MB...`);
+        
+        try {
+          const img = new Image();
+          const blobUrl = URL.createObjectURL(blob);
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = blobUrl;
+          });
+          
+          // Create canvas and resize if needed
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimensions for video generation (1080p max)
+          const MAX_DIM = 1920;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Canvas context failed');
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Convert to JPEG with quality compression
+          finalBlob = await new Promise<Blob>((resolve, reject) => {
+            canvas.toBlob(
+              (b) => b ? resolve(b) : reject(new Error('Blob creation failed')),
+              'image/jpeg',
+              0.85 // 85% quality
+            );
+          });
+          
+          URL.revokeObjectURL(blobUrl);
+          console.log(`✅ Compressed to ${(finalBlob.size / 1024 / 1024).toFixed(2)}MB`);
+          mimeType = 'image/jpeg';
+        } catch (compressionErr) {
+          console.warn('⚠️ Compression failed, using original:', compressionErr);
+          finalBlob = blob;
+        }
+      }
+      
+      const arrayBuffer = await finalBlob.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       
       // ✅ CRITICAL FIX: Detect mimeType from magic bytes if blob.type is missing
-      if (!blob.type || blob.type === '' || blob.type === 'application/octet-stream') {
+      if (!finalBlob.type || finalBlob.type === '' || finalBlob.type === 'application/octet-stream') {
         console.warn('⚠️ Blob has no type, detecting from magic bytes...');
         
         // PNG magic bytes: 89 50 4E 47
@@ -602,13 +659,13 @@ export async function generateAIVideo(
           mimeType = 'image/webp';
         }
         else {
-          console.error('❌ Unknown image format, defaulting to PNG');
-          mimeType = 'image/png';
+          console.error('❌ Unknown image format, defaulting to JPEG');
+          mimeType = 'image/jpeg';
         }
         
         console.log(`✅ Detected mimeType: ${mimeType}`);
       } else {
-        mimeType = blob.type;
+        mimeType = finalBlob.type;
       }
       
       // Convert to base64 in chunks for large files
@@ -714,19 +771,37 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
 `;
   
   // Generate video with enhanced prompt
-  let operation = await ai.models.generateVideos({
-    model,
-    prompt: videoPrompt,
-    image: { 
-      bytesBase64Encoded: base64Data, 
-      mimeType: mimeType 
-    },
-    config: { 
-      numberOfVideos: 1, 
-      resolution: '1080p', 
-      aspectRatio: '9:16' 
-    }
-  });
+  let operation;
+  try {
+    operation = await ai.models.generateVideos({
+      model,
+      prompt: videoPrompt,
+      image: { 
+        bytesBase64Encoded: base64Data, 
+        mimeType: mimeType 
+      },
+      config: { 
+        numberOfVideos: 1, 
+        resolution: '1080p', 
+        aspectRatio: '9:16' 
+      }
+    });
+  } catch (apiErr: any) {
+    console.error('❌ Gemini API Error Details:', {
+      message: apiErr.message,
+      status: apiErr.status,
+      statusText: apiErr.statusText,
+      response: apiErr.response,
+      details: apiErr.details || apiErr.error
+    });
+    
+    // Try to extract useful error message
+    let errorMsg = 'Video generation failed';
+    if (apiErr.message) errorMsg = apiErr.message;
+    if (apiErr.details) errorMsg += `: ${JSON.stringify(apiErr.details)}`;
+    
+    throw new Error(`Gemini Video API rejected request: ${errorMsg}. Image size: ${(base64Data.length / 1024).toFixed(0)}KB, mimeType: ${mimeType}`);
+  }
   
   console.log(`🎬 Video operation started, polling for completion...`);
   
