@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { BusinessInfo, ContentDay, MarketInsight, StrategyResult, MarketContext, BrandDNA } from "../types";
+import { generateQwenImage, generateQwenVideo } from './qwenService';
 
 const CONTENT_SCHEMA = {
   type: Type.OBJECT,
@@ -360,6 +361,20 @@ export async function generateAIImage(
   engine: 'gemini' | 'qwen' = 'gemini',
   aspectRatio: '9:16' | '16:9' | '1:1' = '9:16'
 ): Promise<string> {
+  
+  // ✅ QWEN ROUTING: Route to Qwen if selected
+  if (engine === 'qwen') {
+    console.log('🔀 Routing to Qwen image engine');
+    try {
+      return await generateQwenImage(prompt, aspectRatio);
+    } catch (err: any) {
+      console.error('❌ Qwen failed, falling back to Gemini:', err.message);
+      // Fall through to Gemini as backup
+    }
+  }
+  
+  console.log('🎨 Using Gemini image engine');
+  
   const response: GenerateContentResponse = await retryableCall(async () => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     const parts: any[] = [];
@@ -461,6 +476,24 @@ export async function generateAIVideo(
   brandDNA?: BrandDNA,
   engine: 'gemini' | 'qwen' = 'gemini'
 ): Promise<{ url: string, uri: string, blob: Blob }> {
+  
+  // ✅ QWEN ROUTING: Route to Qwen if selected
+  if (engine === 'qwen') {
+    console.log('🔀 Routing to Qwen video engine');
+    try {
+      const result = await generateQwenVideo(imageUri, topic);
+      return { 
+        url: result.url, 
+        uri: result.url, // Qwen doesn't have permanent URIs like Gemini
+        blob: result.blob 
+      };
+    } catch (err: any) {
+      console.error('❌ Qwen video failed, falling back to Gemini:', err.message);
+      // Fall through to Gemini as backup
+    }
+  }
+  
+  console.log('🎬 Using Gemini video engine');
   
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
   
