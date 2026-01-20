@@ -532,22 +532,37 @@ const App: React.FC = () => {
                     }} 
                     onDeleteAsset={handleDeleteAsset}
                     onRegenerate={handleRegenerate} 
-                    onManualEdit={(updatedDay: ContentDay) => {
-                    if (!strategy || !activeProject) return;
-                        // Update the calendar with the edited day
-                    const newCalendar = strategy.calendar.map(d => 
-                    d.day === updatedDay.day ? updatedDay : d
-                    );
-                      
-                    // Update strategy in state
-                      const updatedStrategy = { ...strategy, calendar: newCalendar };
-                      setStrategy(updatedStrategy);
-                      
-                      // Save to database immediately
-                      storage.saveStrategy(activeProject.id, updatedStrategy, true)
-                        .then(() => console.log('✅ Text edits saved to database'))
-                        .catch(err => console.error('❌ Failed to save edits:', err));
-                    }}
+                    onManualEdit={async (updatedDay: ContentDay) => {
+  if (!strategy || !activeProject) return;
+  
+  // ✅ WEEK 1 FIX: Enhanced text edit persistence
+  const newCalendar = strategy.calendar.map(d => 
+    d.day === updatedDay.day ? updatedDay : d
+  );
+  
+  const updatedStrategy = { ...strategy, calendar: newCalendar };
+  
+  // Update state immediately for responsiveness
+  setStrategy(updatedStrategy);
+  
+  // Save to database with comprehensive error handling
+  try {
+    await storage.saveStrategy(activeProject.id, updatedStrategy, true);
+    console.log('✅ Text edits saved successfully');
+  } catch (err: any) {
+    console.error('❌ Failed to save text edits:', err);
+    
+    // User-friendly error message
+    alert(
+      `⚠️ Save Failed: ${err.message}\n\n` +
+      `Your changes are cached locally but may not sync to cloud.\n\n` +
+      `Please try refreshing the page.`
+    );
+    
+    // Revert to previous strategy if save failed
+    setStrategy(strategy);
+  }
+}}
                     visualLayers={visualLayers}
                     onUpdateLayers={handleUpdateLayers}
                   />
