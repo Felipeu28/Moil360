@@ -10,6 +10,7 @@ interface Props {
   projectKey: string;
   onSignOut: () => void;
   onExport: () => void;
+  onExportCSV: () => void;  // ✅ ADD THIS LINE
   onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onFinalize: () => void;
   strategy: StrategyResult | null;
@@ -24,8 +25,25 @@ interface Props {
 }
 
 export const ProjectPortal: React.FC<Props> = ({ 
-  isOpen, onClose, projectKey, onSignOut, onExport, onImport, onFinalize, strategy, archive, onSwitchMonth, assetSummary, brandDNA, onUpdateBrand, lang, isCloudEnabled, isSyncing
+  isOpen, 
+  onClose, 
+  projectKey, 
+  onSignOut, 
+  onExport, 
+  onExportCSV,  // ✅ ADD THIS LINE
+  onImport, 
+  onFinalize, 
+  strategy, 
+  archive, 
+  onSwitchMonth, 
+  assetSummary, 
+  brandDNA, 
+  onUpdateBrand, 
+  lang, 
+  isCloudEnabled, 
+  isSyncing
 }) => {
+  
   const t = translations[lang];
   const [localDNA, setLocalDNA] = useState<BrandDNA>(brandDNA || {
     logoDescription: '',
@@ -101,21 +119,44 @@ export const ProjectPortal: React.FC<Props> = ({
              </div>
           </section>
 
-          <section className="space-y-4">
-             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><FileDown className="w-3.5 h-3.5" /> {t.data_mgmt}</h3>
-             <div className="grid grid-cols-1 gap-3">
-                <button onClick={onExport} className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-slate-100 transition-all group">
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600">{t.export_btn}</span>
-                   <Download className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
-                </button>
-                <label className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-slate-100 transition-all group cursor-pointer">
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 group-hover:text-emerald-600">{t.import_btn}</span>
-                   <UploadCloud className="w-4 h-4 text-slate-400 group-hover:text-emerald-600" />
-                   <input type="file" accept=".moil" className="hidden" onChange={onImport} />
-                </label>
-             </div>
-          </section>
-
+         <section className="space-y-4">
+  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+    <FileDown className="w-3.5 h-3.5" /> {t.data_mgmt}
+  </h3>
+  <div className="grid grid-cols-1 gap-3">
+    {/* ✅ .MOIL BACKUP BUTTON */}
+    <button 
+      onClick={onExport} 
+      className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-slate-100 transition-all group"
+    >
+      <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 group-hover:text-indigo-600">
+        Export Full Backup (.moil)
+      </span>
+      <Download className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
+    </button>
+    
+    {/* ✅ CSV EXPORT BUTTON - THIS IS NEW */}
+    <button 
+      onClick={onExportCSV} 
+      className="w-full flex items-center justify-between p-4 bg-emerald-50 border border-emerald-100 rounded-2xl hover:bg-emerald-100 transition-all group"
+    >
+      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 group-hover:text-emerald-700">
+        Export for Socials (.csv)
+      </span>
+      <FileDown className="w-4 h-4 text-emerald-400 group-hover:text-emerald-600" />
+    </button>
+    
+    {/* ✅ IMPORT BUTTON */}
+    <label className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-slate-100 transition-all group cursor-pointer">
+      <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 group-hover:text-amber-600">
+        {t.import_btn}
+      </span>
+      <UploadCloud className="w-4 h-4 text-slate-400 group-hover:text-amber-600" />
+      <input type="file" accept=".moil" className="hidden" onChange={onImport} />
+    </label>
+  </div>
+</section>
+          
           {archive.length > 0 && (
             <section className="space-y-3">
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><History className="w-3.5 h-3.5 text-indigo-500" /> {t.past_strategies}</h3>
