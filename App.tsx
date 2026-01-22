@@ -297,6 +297,11 @@ const App: React.FC = () => {
     }
   };
 
+  // ============================================================================
+// LOCATION: App.tsx - Around line 140-240
+// REPLACE FROM handleRegenerate TO handleSignOut WITH THIS COMPLETE SECTION
+// ============================================================================
+
   const handleRegenerate = async (day: ContentDay, feedback: string) => {
     if (!strategy || !activeProject) return;
     setIsLoading(true);
@@ -307,11 +312,114 @@ const App: React.FC = () => {
       await storage.saveStrategy(activeProject.id, newStrategy);
       setStrategy(newStrategy);
       setSelectedDay(updatedDay);
-    } catch (err: any) { alert(err.message); }
-    finally { setIsLoading(false); }
+    } catch (err: any) { 
+      alert(err.message); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
-  const handleDeleteAsset
+  const handleDeleteAsset = async (url: string, type: 'image' | 'video') => {
+    try {
+      await storage.deleteAsset(url);
+      if (type === 'image') setGeneratedImages(prev => prev.filter(img => img.url !== url));
+      else setGeneratedVideos(prev => prev.filter(vid => vid.url !== url));
+    } catch (err) {}
+  };
+
+  // ✅ NEW EXPORT FUNCTIONS START HERE
+  const handleExportCSV = () => {
+    if (!strategy || !strategy.calendar) {
+      alert("No active strategy found to export.");
+      return;
+    }
+
+    const headers = [
+      "Day",
+      "Date",
+      "Topic",
+      "Content Type",
+      "Hook",
+      "Full Caption",
+      "Call to Action",
+      "Hashtags",
+      "Best Time to Post",
+      "Requires Video"
+    ];
+
+    const rows = strategy.calendar.map(day => {
+      const clean = (str: string) => {
+        const val = str || '';
+        return `"${val.replace(/"/g, '""')}"`;
+      };
+      
+      return [
+        day.day,
+        day.date,
+        clean(day.topic),
+        clean(day.content_type),
+        clean(day.hook),
+        clean(day.full_caption),
+        clean(day.cta),
+        clean(day.hashtags.join(' ')),
+        clean(day.best_time),
+        day.requires_video ? "Yes" : "No"
+      ].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+
+    try {
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const fileName = `Moil_Content360_${activeProject?.name.replace(/\s+/g, '_') || 'Strategy'}.csv`;
+      
+      link.setAttribute("href", url);
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (error) {
+      console.error("CSV Export failed:", error);
+      alert("CSV export failed. Please try again.");
+    }
+  };
+
+  const handleExportMoil = () => {
+    if (!strategy || !activeProject) {
+      alert("Nothing to archive. Please generate a strategy first.");
+      return;
+    }
+
+    const exportData = {
+      version: "2.0",
+      timestamp: new Date().toISOString(),
+      project_name: activeProject.name,
+      business_info: activeProject.business_info,
+      strategy: strategy,
+      visualLayers: visualLayers
+    };
+
+    try {
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const fileName = `${activeProject.name.replace(/\s+/g, '_')}_Backup.moil`;
+      
+      link.setAttribute("href", url);
+      link.setAttribute("download", fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (error) {
+      console.error("Archive export failed:", error);
+      alert("Archive export failed. Please try again.");
+    }
+  };
+  // ✅ NEW EXPORT FUNCTIONS END HERE
 
   const handleSignOut = () => {
     localStorage.removeItem('moil_storage_mode');
