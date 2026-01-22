@@ -311,13 +311,7 @@ const App: React.FC = () => {
     finally { setIsLoading(false); }
   };
 
-  const handleDeleteAsset = async (url: string, type: 'image' | 'video') => {
-    try {
-      await storage.deleteAsset(url);
-      if (type === 'image') setGeneratedImages(prev => prev.filter(img => img.url !== url));
-      else setGeneratedVideos(prev => prev.filter(vid => vid.url !== url));
-    } catch (err) {}
-  };
+  const handleDeleteAsset
 
   const handleSignOut = () => {
     localStorage.removeItem('moil_storage_mode');
@@ -574,7 +568,7 @@ const App: React.FC = () => {
       </main>
 
       {activeProject && (
-        <ProjectPortal isOpen={isPortalOpen} onClose={() => setIsPortalOpen(false)} projectKey={activeProject.id} onSignOut={handleSignOut} onExport={() => {}} onImport={handleImport} onFinalize={handleFinalize} strategy={strategy} archive={archive} onSwitchMonth={(s) => setStrategy(s)} brandDNA={activeProject.business_info?.brandDNA} onUpdateBrand={() => {}} lang={lang} isCloudEnabled={cloudStatus === 'online'} assetSummary={{ images: generatedImages.length, videos: generatedVideos.length }} />
+        <ProjectPortal isOpen={isPortalOpen} onClose={() => setIsPortalOpen(false)} projectKey={activeProject.id} onSignOut={handleSignOut} onExportCSV={handleExportCSV} onImport={handleImport} onFinalize={handleFinalize} strategy={strategy} archive={archive} onSwitchMonth={(s) => setStrategy(s)} brandDNA={activeProject.business_info?.brandDNA} onUpdateBrand={() => {}} lang={lang} isCloudEnabled={cloudStatus === 'online'} assetSummary={{ images: generatedImages.length, videos: generatedVideos.length }} />
       )}
     </div>
   );
