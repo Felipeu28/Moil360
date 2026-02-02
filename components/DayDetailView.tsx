@@ -240,12 +240,16 @@ export const DayDetailView: React.FC<Props> = ({
 
   const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (draggingLayer === null || !previewRef.current || !activeAsset) return;
+
+    // PREVENT SCROLLING WHILE DRAGGING
+    if (e.cancelable) e.preventDefault();
+
     const rect = previewRef.current.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
-    let x = Math.min(Math.max(5, ((clientX - rect.left) / rect.width) * 100), 95);
-    let y = Math.min(Math.max(5, ((clientY - rect.top) / rect.height) * 100), 95);
+    let x = Math.min(Math.max(0, ((clientX - rect.left) / rect.width) * 100), 100);
+    let y = Math.min(Math.max(0, ((clientY - rect.top) / rect.height) * 100), 100);
 
     let snapX: number | null = null;
     let snapY: number | null = null;
@@ -271,7 +275,7 @@ export const DayDetailView: React.FC<Props> = ({
     if (draggingLayer !== null) {
       window.addEventListener('mousemove', handleDragMove);
       window.addEventListener('mouseup', handleDragEnd);
-      window.addEventListener('touchmove', handleDragMove);
+      window.addEventListener('touchmove', handleDragMove, { passive: false });
       window.addEventListener('touchend', handleDragEnd);
     }
     return () => {
@@ -507,35 +511,49 @@ export const DayDetailView: React.FC<Props> = ({
     setEditField(null);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, uploadType: 'base' | 'sticker' = 'sticker') => {
     const file = e.target.files?.[0];
-    if (!file || !activeAsset) return;
+    if (!file) return;
+
+    // For sticker layers, we require an active asset. For base assets, we don't.
+    if (uploadType === 'sticker' && !activeAsset) return;
+
     setUploadingImage(true);
     try {
       const { storage } = await import('../services/storageService');
       const projectId = (window as any).currentProjectId || 'local_default';
-      const url = await storage.uploadAsset(projectId, day.day, 'image', file, { source: 'user_personalized' });
+      const url = await storage.uploadAsset(projectId, day.day, 'image', file, { source: uploadType === 'base' ? 'user_base' : 'user_personalized' });
 
-      const newLayer: OverlaySettings = {
-        type: 'image',
-        id: `layer-img-${Date.now()}`,
-        imageUrl: url,
-        pos: { x: 50, y: 50 },
-        size: 30,
-        rotation: 0,
-        scale: 1,
-        opacity: 1,
-        glassStyle: 'none',
-        textAlign: 'center',
-        hasShadow: false,
-        shadowBlur: 10,
-        strokeColor: '#000000',
-        strokeWidth: 0
-      };
+      if (uploadType === 'base') {
+        onImageGenerated({
+          dayIndex: day.day,
+          promptIndex: currentDayImages.length,
+          url,
+          modelId: 'upload',
+          createdAt: Date.now()
+        });
+      } else {
+        const newLayer: OverlaySettings = {
+          type: 'image',
+          id: `layer-img-${Date.now()}`,
+          imageUrl: url,
+          pos: { x: 50, y: 50 },
+          size: 30,
+          rotation: 0,
+          scale: 1,
+          opacity: 1,
+          glassStyle: 'none',
+          textAlign: 'center',
+          hasShadow: false,
+          shadowBlur: 10,
+          strokeColor: '#000000',
+          strokeWidth: 0
+        };
 
-      const newLayers = [...currentLayers, newLayer];
-      saveVisualEdits(newLayers, activeVisualMode);
-      setActiveLayerIndex(newLayers.length - 1);
+        const newLayers = [...currentLayers, newLayer];
+        saveVisualEdits(newLayers, activeVisualMode);
+        setActiveLayerIndex(newLayers.length - 1);
+      }
     } catch (err: any) {
       alert("Failed to upload image: " + err.message);
     } finally {
@@ -691,28 +709,50 @@ export const DayDetailView: React.FC<Props> = ({
                 Portrait: Instagram Stories, Reels | Landscape: YouTube, Blog | Square: Instagram Feed
               </p>
             </div>
-            {!showImgEditPanel ? (
-              <div className="flex gap-4 items-center">
-                <button onClick={triggerImageGen} disabled={loadingImg} className={`flex-[4] py-5 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl transition-all ${activeAsset ? 'bg-slate-900 text-white hover:bg-black' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
-                  {loadingImg ? <RefreshCw className="w-4 h-4 animate-spin" /> : activeAsset ? <><Edit3 className="w-4 h-4" /> {t.edit_image}</> : <><Sparkles className="w-4 h-4" /> {t.create_image}</>}
-                </button>
-                <button onClick={() => setShowOverlayDesigner(!showOverlayDesigner)} className={`flex-1 h-[60px] rounded-2xl border transition-all flex items-center justify-center group ${showOverlayDesigner ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-indigo-600 text-white shadow-md border-indigo-500'}`} title="Text Architect">
-                  <TypeIcon className={`w-6 h-6 ${showOverlayDesigner ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
-                </button>
-              </div>
-            ) : (
-              <div className="w-full space-y-4 p-6 bg-slate-900 rounded-[2rem] shadow-2xl animate-in zoom-in duration-200">
-                <div className="flex justify-between items-center mb-1">
-                  <p className="text-[11px] font-black text-indigo-400 uppercase tracking-widest">{t.logic_correction}</p>
-                  <button onClick={() => { setImgEditFeedback(''); setShowImgEditPanel(false); }} className="text-white/40 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
-                </div>
-                <textarea autoFocus value={imgEditFeedback} onChange={e => setImgEditFeedback(e.target.value)} placeholder="e.g. 'Add more sunlight', 'Change character outfit'..." className="w-full p-4 rounded-xl text-sm font-bold bg-white border border-white/10 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-none" />
-                <div className="flex gap-3">
-                  <button onClick={() => setShowImgEditPanel(false)} disabled={loadingImg} className="flex-1 py-4 bg-white/10 text-white rounded-xl text-[10px] font-black uppercase hover:bg-white/20 disabled:opacity-50 flex items-center justify-center gap-2"><Undo2 className="w-3.5 h-3.5" /> Back</button>
-                  <button onClick={triggerImageGen} disabled={loadingImg} className="flex-[2] py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-indigo-500 shadow-xl flex items-center justify-center gap-2 transition-all disabled:opacity-80">
-                    {loadingImg ? <><RefreshCw className="w-3 h-3 animate-spin" /> {t.processing}</> : t.apply_logic}
+            {!activeAsset ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button onClick={triggerImageGen} disabled={loadingImg} className="h-[140px] rounded-[2.5rem] bg-indigo-600 text-white font-black text-xs uppercase tracking-widest flex flex-col items-center justify-center gap-3 hover:bg-indigo-700 active:scale-95 transition-all shadow-xl group border-none outline-none">
+                    {loadingImg ? <RefreshCw className="w-8 h-8 animate-spin" /> : <Sparkles className="w-8 h-8 group-hover:scale-110 transition-transform" />}
+                    <span>{t.create_image}</span>
+                  </button>
+                  <button onClick={() => fileInputRef.current?.click()} disabled={uploadingImage} className="h-[140px] rounded-[2.5rem] bg-slate-100 text-slate-900 border-2 border-slate-200 font-black text-xs uppercase tracking-widest flex flex-col items-center justify-center gap-3 hover:bg-slate-200 active:scale-95 transition-all group outline-none">
+                    {uploadingImage ? <RefreshCw className="w-8 h-8 animate-spin" /> : <Upload className="w-8 h-8 group-hover:scale-110 transition-transform" />}
+                    <span>Upload Base Image</span>
                   </button>
                 </div>
+                <input type="file" ref={fileInputRef} onChange={(e) => handleImageUpload(e, 'base')} accept="image/*" className="hidden" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {!showImgEditPanel ? (
+                  <div className="flex gap-4 items-center">
+                    <button onClick={triggerImageGen} disabled={loadingImg} className="flex-[3] py-6 rounded-2xl bg-slate-900 text-white font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl hover:bg-black active:scale-95 transition-all">
+                      {loadingImg ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><Edit3 className="w-4 h-4" /> {t.edit_image}</>}
+                    </button>
+                    <button onClick={() => fileInputRef.current?.click()} className="flex-1 h-[68px] rounded-2xl bg-white border-2 border-slate-100 text-slate-400 font-black text-[10px] uppercase flex flex-col items-center justify-center gap-1 hover:bg-slate-50 active:scale-95 transition-all" title="Replace Base Image">
+                      <Upload className="w-4 h-4" />
+                      <span>{t.replace || 'Replace'}</span>
+                    </button>
+                    <button onClick={() => setShowOverlayDesigner(!showOverlayDesigner)} className={`flex-1 h-[68px] rounded-2xl border transition-all flex items-center justify-center group active:scale-95 ${showOverlayDesigner ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-white text-slate-400 border-slate-100 shadow-sm'}`} title="Text Architect">
+                      <TypeIcon className={`w-6 h-6 ${showOverlayDesigner ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-full space-y-4 p-8 bg-slate-900 rounded-[2.5rem] shadow-2xl animate-in zoom-in duration-200 ring-4 ring-indigo-500/20">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-[11px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2"><Sparkles className="w-4 h-4" /> {t.logic_correction}</p>
+                      <button onClick={() => { setImgEditFeedback(''); setShowImgEditPanel(false); }} className="p-2 text-white/40 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+                    </div>
+                    <textarea autoFocus value={imgEditFeedback} onChange={e => setImgEditFeedback(e.target.value)} placeholder="e.g. 'Add more sunlight', 'Change character outfit'..." className="w-full p-6 rounded-2xl text-base font-bold bg-white border-none text-slate-900 outline-none focus:ring-4 focus:ring-indigo-500/50 min-h-[140px] resize-none shadow-inner" />
+                    <div className="flex gap-4">
+                      <button onClick={() => setShowImgEditPanel(false)} disabled={loadingImg} className="flex-1 py-5 bg-white/10 text-white rounded-2xl text-[11px] font-black uppercase hover:bg-white/20 active:scale-95 transition-all flex items-center justify-center gap-2"><Undo2 className="w-4 h-4" /> {t.back || 'Back'}</button>
+                      <button onClick={triggerImageGen} disabled={loadingImg} className="flex-[2] py-5 bg-indigo-600 text-white rounded-2xl text-[11px] font-black uppercase hover:bg-indigo-500 shadow-xl flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-80">
+                        {loadingImg ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><Sparkles className="w-4 h-4" /> {t.apply_logic}</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -891,9 +931,10 @@ export const DayDetailView: React.FC<Props> = ({
                               width: layer.type === 'text' ? '85%' : `${layer.size || 30}%`,
                               opacity: layer.opacity ?? 1,
                               pointerEvents: showOverlayDesigner ? 'auto' : 'none',
-                              zIndex: activeLayerIndex === i ? 40 : 30
+                              zIndex: activeLayerIndex === i ? 40 : 30,
+                              touchAction: 'none'
                             }}
-                            className={`absolute flex flex-col items-center justify-center select-none ${showOverlayDesigner ? 'cursor-grab active:cursor-grabbing' : ''} ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-4 rounded-lg' : ''}`}>
+                            className={`absolute flex flex-col items-center justify-center select-none ${showOverlayDesigner ? 'cursor-grab active:cursor-grabbing transition-shadow' : ''} ${isSelected ? 'ring-4 ring-indigo-500 shadow-[0_0_40px_rgba(99,102,241,0.5)] rounded-2xl' : ''}`}>
 
                             {layer.type === 'image' ? (
                               <img src={layer.imageUrl} className={`w-full h-full object-contain ${layer.hasShadow ? 'drop-shadow-2xl' : ''}`} alt="Layer" />
