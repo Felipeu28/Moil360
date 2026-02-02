@@ -9,6 +9,7 @@ import { BusinessForm } from './components/BusinessForm';
 import { CalendarGrid } from './components/CalendarGrid';
 import { DayDetailView } from './components/DayDetailView';
 import { ProjectPortal } from './components/ProjectPortal';
+import { MonthOverView } from './components/MonthOverView';
 import { generateContentStrategy, regenerateDay, fetchRemoteStrategy } from './services/geminiService';
 import { storage } from './services/storageService';
 import { translations } from './services/i18nService';
@@ -34,7 +35,7 @@ const safeDataURItoBlob = (dataURI: string) => {
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [isIsolated, setIsIsolated] = useState(() => localStorage.getItem('moil_storage_mode') === 'local');
-  
+
   const [view, setView] = useState<'dashboard' | 'form' | 'strategy'>('dashboard');
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [strategy, setStrategy] = useState<StrategyResult | null>(null);
@@ -43,16 +44,17 @@ const App: React.FC = () => {
   const [lang, setLang] = useState<Language>('EN');
   const [selectedDay, setSelectedDay] = useState<ContentDay | null>(null);
   const [isPortalOpen, setIsPortalOpen] = useState(false);
-  const [cloudStatus, setCloudStatus] = useState<'online' | 'offline' | 'maintenance' | 'testing'>('online'); 
+  const [cloudStatus, setCloudStatus] = useState<'online' | 'offline' | 'maintenance' | 'testing'>('online');
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
-  
+
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [generatedVideos, setGeneratedVideos] = useState<GeneratedVideo[]>([]);
   const [visualLayers, setVisualLayers] = useState<Record<string, OverlaySettings[]>>({});
+  const [finalizedStrategy, setFinalizedStrategy] = useState<StrategyResult | null>(null);
 
   const checkCloud = useCallback(async (isInitial = false) => {
     if (isIsolated) return;
-    
+
     const { ok, status, error } = await testSupabaseConnection(isInitial);
     if (status === 522 || status === 504 || status === 544 || status === 429) {
       setCloudStatus('maintenance');
@@ -127,7 +129,7 @@ const App: React.FC = () => {
         storage.getAssets(project.id),
         storage.getArchive(project.id)
       ]);
-      
+
       console.log(`📦 Received ${assets?.length || 0} total assets for project ${project.id}`);
 
       const mappedImages: GeneratedImage[] = (assets || [])
@@ -135,10 +137,10 @@ const App: React.FC = () => {
         .map(a => {
           console.log(`🖼️ Loading image: Day ${a.day_index}, Prompt ${a.metadata?.promptIndex || 0}, Source: ${a.source}`);
           return {
-            url: a.url, 
-            dayIndex: a.day_index, 
-            promptIndex: a.metadata?.promptIndex || 0, 
-            modelId: a.metadata?.modelId || 'gemini', 
+            url: a.url,
+            dayIndex: a.day_index,
+            promptIndex: a.metadata?.promptIndex || 0,
+            modelId: a.metadata?.modelId || 'gemini',
             createdAt: a.created_at ? new Date(a.created_at).getTime() : Date.now()
           };
         });
@@ -148,10 +150,10 @@ const App: React.FC = () => {
         .map(a => {
           console.log(`🎬 Loading video: Day ${a.day_index}, Version ${a.metadata?.version || 1}, Source: ${a.source}`);
           return {
-            url: a.url, 
-            dayIndex: a.day_index, 
-            version: a.metadata?.version || 1, 
-            createdAt: a.created_at ? new Date(a.created_at).getTime() : Date.now(), 
+            url: a.url,
+            dayIndex: a.day_index,
+            version: a.metadata?.version || 1,
+            createdAt: a.created_at ? new Date(a.created_at).getTime() : Date.now(),
             modelId: a.metadata?.modelId || 'gemini'
           };
         });
@@ -196,11 +198,36 @@ const App: React.FC = () => {
       await storage.finalizeStrategy(activeProject.id, strategy);
       const cloudArchive = await storage.getArchive(activeProject.id);
       setArchive(cloudArchive);
+
+      // ✅ RECURSIVE ENGINE: Show overview instead of immediately returning to dashboard
+      setFinalizedStrategy(strategy);
       setStrategy(null);
-      setView('dashboard');
       setIsPortalOpen(false);
     } catch (err: any) {
       alert(`Archive Error: ${err.message}. Strategy remains active locally.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKickoffNextMonth = async () => {
+    if (!finalizedStrategy || !activeProject) return;
+    const history = finalizedStrategy;
+    setFinalizedStrategy(null);
+    setIsLoading(true);
+    try {
+      // ✅ CLEAR ASSET STATES FOR NEW MONTH
+      setGeneratedImages([]);
+      setGeneratedVideos([]);
+      setVisualLayers({});
+
+      const result = await generateContentStrategy(activeProject.business_info, history);
+      await storage.saveStrategy(activeProject.id, result);
+      setStrategy(result);
+      setSelectedDay(result.calendar[0]);
+      setView('strategy');
+    } catch (err: any) {
+      alert(`Evolution Failed: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -214,12 +241,12 @@ const App: React.FC = () => {
         projectToUse = await storage.createProject(info.name, info.industry, info);
         setActiveProject(projectToUse);
       }
-      
+
       // ✅ CRITICAL FIX: Clear all asset states for the new project
       setGeneratedImages([]);
       setGeneratedVideos([]);
       setVisualLayers({});
-      
+
       const result = await generateContentStrategy(info);
       await storage.saveStrategy(projectToUse.id, result);
       setStrategy(result);
@@ -244,12 +271,12 @@ const App: React.FC = () => {
         });
         setActiveProject(projectToUse);
       }
-      
+
       // ✅ CRITICAL FIX: Clear asset states for remote sync project
       setGeneratedImages([]);
       setGeneratedVideos([]);
       setVisualLayers({});
-      
+
       await storage.saveStrategy(projectToUse.id, result);
       setStrategy(result);
       setSelectedDay(result.calendar?.[0] || null);
@@ -270,18 +297,18 @@ const App: React.FC = () => {
       const importData = JSON.parse(text);
       const importedStrategy = importData.strategy || (importData.calendar ? importData : null);
       if (!importedStrategy) throw new Error("Invalid .moil file.");
-      
+
       const project = await storage.createProject(
         (importData.business_info?.name || "Imported") + " (Restored)",
         "Restored",
         importData.business_info || {}
       );
-      
+
       // ✅ CRITICAL FIX: Clear asset states for imported project
       setGeneratedImages([]);
       setGeneratedVideos([]);
       setVisualLayers({});
-      
+
       await storage.saveStrategy(project.id, importedStrategy);
       setActiveProject(project);
       setStrategy(importedStrategy);
@@ -298,9 +325,9 @@ const App: React.FC = () => {
   };
 
   // ============================================================================
-// LOCATION: App.tsx - Around line 140-240
-// REPLACE FROM handleRegenerate TO handleSignOut WITH THIS COMPLETE SECTION
-// ============================================================================
+  // LOCATION: App.tsx - Around line 140-240
+  // REPLACE FROM handleRegenerate TO handleSignOut WITH THIS COMPLETE SECTION
+  // ============================================================================
 
   const handleRegenerate = async (day: ContentDay, feedback: string) => {
     if (!strategy || !activeProject) return;
@@ -312,10 +339,10 @@ const App: React.FC = () => {
       await storage.saveStrategy(activeProject.id, newStrategy);
       setStrategy(newStrategy);
       setSelectedDay(updatedDay);
-    } catch (err: any) { 
-      alert(err.message); 
-    } finally { 
-      setIsLoading(false); 
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -324,7 +351,7 @@ const App: React.FC = () => {
       await storage.deleteAsset(url);
       if (type === 'image') setGeneratedImages(prev => prev.filter(img => img.url !== url));
       else setGeneratedVideos(prev => prev.filter(vid => vid.url !== url));
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // ✅ NEW EXPORT FUNCTIONS START HERE
@@ -352,7 +379,7 @@ const App: React.FC = () => {
         const val = str || '';
         return `"${val.replace(/"/g, '""')}"`;
       };
-      
+
       return [
         day.day,
         day.date,
@@ -374,7 +401,7 @@ const App: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       const fileName = `Moil_Content360_${activeProject?.name.replace(/\s+/g, '_') || 'Strategy'}.csv`;
-      
+
       link.setAttribute("href", url);
       link.setAttribute("download", fileName);
       document.body.appendChild(link);
@@ -407,7 +434,7 @@ const App: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       const fileName = `${activeProject.name.replace(/\s+/g, '_')}_Backup.moil`;
-      
+
       link.setAttribute("href", url);
       link.setAttribute("download", fileName);
       document.body.appendChild(link);
@@ -431,8 +458,8 @@ const App: React.FC = () => {
   };
 
   if (!session && !isIsolated) {
-    return <AuthGate 
-      onAuthSuccess={(sess: Session) => setSession(sess)} 
+    return <AuthGate
+      onAuthSuccess={(sess: Session) => setSession(sess)}
       onIsolatedMode={() => setIsIsolated(true)}
     />;
   }
@@ -458,8 +485,8 @@ const App: React.FC = () => {
           <div className="flex items-center gap-6">
             {(cloudStatus !== 'online' || isIsolated) && (
               <div className={`flex items-center gap-2 px-4 py-2 border rounded-xl animate-pulse ${isIsolated ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400' : (cloudStatus === 'maintenance' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-rose-500/10 border-rose-500/20 text-rose-500')}`}>
-                 {isIsolated ? <ShieldAlert className="w-4 h-4" /> : (cloudStatus === 'maintenance' ? <Construction className="w-4 h-4" /> : <CloudOff className="w-4 h-4" />)}
-                 <span className="text-[8px] font-black uppercase tracking-widest">{isIsolated ? 'Isolated Hub' : 'Vault Maintenance'}</span>
+                {isIsolated ? <ShieldAlert className="w-4 h-4" /> : (cloudStatus === 'maintenance' ? <Construction className="w-4 h-4" /> : <CloudOff className="w-4 h-4" />)}
+                <span className="text-[8px] font-black uppercase tracking-widest">{isIsolated ? 'Isolated Hub' : 'Vault Maintenance'}</span>
               </div>
             )}
             {!isIsolated && (
@@ -498,13 +525,13 @@ const App: React.FC = () => {
           <>
             {cloudStatus === 'maintenance' && !isIsolated && (
               <div className="mb-12 p-6 bg-amber-500/10 border border-amber-500/20 rounded-[2.5rem] flex items-center gap-6 animate-in slide-in-from-top duration-700">
-                 <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center shrink-0 shadow-lg">
-                    <AlertCircle className="w-6 h-6 text-white" />
-                 </div>
-                 <div className="space-y-1">
-                    <h3 className="text-sm font-black uppercase tracking-tight text-amber-400">Cloud Instability: {errorDetails}</h3>
-                    <p className="text-xs font-medium text-amber-200/60 uppercase tracking-widest leading-relaxed">The database is currently saturated. Your changes are being cached locally. We recommend switching to **Isolated Mode** for zero-latency performance until the cloud recovers.</p>
-                 </div>
+                <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center shrink-0 shadow-lg">
+                  <AlertCircle className="w-6 h-6 text-white" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-black uppercase tracking-tight text-amber-400">Cloud Instability: {errorDetails}</h3>
+                  <p className="text-xs font-medium text-amber-200/60 uppercase tracking-widest leading-relaxed">The database is currently saturated. Your changes are being cached locally. We recommend switching to **Isolated Mode** for zero-latency performance until the cloud recovers.</p>
+                </div>
               </div>
             )}
 
@@ -519,7 +546,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   <div className="lg:col-span-4 bg-white/5 p-8 rounded-[2.5rem] border border-white/5 flex flex-col justify-between group overflow-hidden relative">
                     <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                       <Database className="w-32 h-32" />
+                      <Database className="w-32 h-32" />
                     </div>
                     <div className="flex items-center gap-6 relative z-10">
                       <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl transition-transform">
@@ -571,26 +598,26 @@ const App: React.FC = () => {
                 </div>
 
                 <CalendarGrid lang={lang} calendar={strategy.calendar || []} generatedImages={generatedImages} generatedVideos={generatedVideos} onSelectDay={handleSelectDay} selectedDay={selectedDay || undefined} />
-                
+
                 {selectedDay && (
-                  <DayDetailView 
-                    key={selectedDay.day} 
+                  <DayDetailView
+                    key={selectedDay.day}
                     lang={lang}
-                    day={selectedDay} 
-                    generatedImages={generatedImages} 
-                    generatedVideos={generatedVideos} 
+                    day={selectedDay}
+                    generatedImages={generatedImages}
+                    generatedVideos={generatedVideos}
                     onImageGenerated={async (img) => {
                       const tempId = img.createdAt;
                       const originalUrl = img.url;
                       setGeneratedImages(p => [...p, img]);
-                      
+
                       if (activeProject) {
                         try {
                           const blob = safeDataURItoBlob(img.url);
                           if (blob) {
-                            const publicUrl = await storage.uploadAsset(activeProject.id, img.dayIndex, 'image', blob, { 
-                              modelId: img.modelId, 
-                              promptIndex: img.promptIndex 
+                            const publicUrl = await storage.uploadAsset(activeProject.id, img.dayIndex, 'image', blob, {
+                              modelId: img.modelId,
+                              promptIndex: img.promptIndex
                             });
                             setGeneratedImages(prev => prev.map(item => item.dayIndex === img.dayIndex && item.createdAt === tempId ? { ...item, url: publicUrl } : item));
                             setVisualLayers(prev => {
@@ -604,17 +631,17 @@ const App: React.FC = () => {
                               return prev;
                             });
                           }
-                        } catch (err) {}
+                        } catch (err) { }
                       }
-                    }} 
+                    }}
                     onVideoGenerated={async (vid: GeneratedVideo) => {
                       const tempId = vid.createdAt;
                       const originalUrl = vid.url;
                       setGeneratedVideos(p => [...p, vid]);
-                      
+
                       if (activeProject && vid.blob) {
                         try {
-                          const publicUrl = await storage.uploadAsset(activeProject.id, vid.dayIndex, 'video', vid.blob, { 
+                          const publicUrl = await storage.uploadAsset(activeProject.id, vid.dayIndex, 'video', vid.blob, {
                             modelId: vid.modelId,
                             version: vid.version
                           });
@@ -622,49 +649,49 @@ const App: React.FC = () => {
                           setVisualLayers(prev => {
                             const layers = prev[originalUrl];
                             if (layers) {
-                                const next = { ...prev };
-                                delete next[originalUrl];
-                                next[publicUrl] = layers;
-                                return next;
-                              }
-                              return prev;
-                            });
-                        } catch (err) {}
+                              const next = { ...prev };
+                              delete next[originalUrl];
+                              next[publicUrl] = layers;
+                              return next;
+                            }
+                            return prev;
+                          });
+                        } catch (err) { }
                       }
-                    }} 
+                    }}
                     onDeleteAsset={handleDeleteAsset}
-                    onRegenerate={handleRegenerate} 
+                    onRegenerate={handleRegenerate}
                     onManualEdit={async (updatedDay: ContentDay) => {
-  if (!strategy || !activeProject) return;
-  
-  // ✅ WEEK 1 FIX: Enhanced text edit persistence
-  const newCalendar = strategy.calendar.map(d => 
-    d.day === updatedDay.day ? updatedDay : d
-  );
-  
-  const updatedStrategy = { ...strategy, calendar: newCalendar };
-  
-  // Update state immediately for responsiveness
-  setStrategy(updatedStrategy);
-  
-  // Save to database with comprehensive error handling
-  try {
-    await storage.saveStrategy(activeProject.id, updatedStrategy, true);
-    console.log('✅ Text edits saved successfully');
-  } catch (err: any) {
-    console.error('❌ Failed to save text edits:', err);
-    
-    // User-friendly error message
-    alert(
-      `⚠️ Save Failed: ${err.message}\n\n` +
-      `Your changes are cached locally but may not sync to cloud.\n\n` +
-      `Please try refreshing the page.`
-    );
-    
-    // Revert to previous strategy if save failed
-    setStrategy(strategy);
-  }
-}}
+                      if (!strategy || !activeProject) return;
+
+                      // ✅ WEEK 1 FIX: Enhanced text edit persistence
+                      const newCalendar = strategy.calendar.map(d =>
+                        d.day === updatedDay.day ? updatedDay : d
+                      );
+
+                      const updatedStrategy = { ...strategy, calendar: newCalendar };
+
+                      // Update state immediately for responsiveness
+                      setStrategy(updatedStrategy);
+
+                      // Save to database with comprehensive error handling
+                      try {
+                        await storage.saveStrategy(activeProject.id, updatedStrategy, true);
+                        console.log('✅ Text edits saved successfully');
+                      } catch (err: any) {
+                        console.error('❌ Failed to save text edits:', err);
+
+                        // User-friendly error message
+                        alert(
+                          `⚠️ Save Failed: ${err.message}\n\n` +
+                          `Your changes are cached locally but may not sync to cloud.\n\n` +
+                          `Please try refreshing the page.`
+                        );
+
+                        // Revert to previous strategy if save failed
+                        setStrategy(strategy);
+                      }
+                    }}
                     visualLayers={visualLayers}
                     onUpdateLayers={handleUpdateLayers}
                   />
@@ -676,7 +703,34 @@ const App: React.FC = () => {
       </main>
 
       {activeProject && (
-        <ProjectPortal isOpen={isPortalOpen} onClose={() => setIsPortalOpen(false)} projectKey={activeProject.id} onSignOut={handleSignOut} onExportCSV={handleExportCSV} onImport={handleImport} onFinalize={handleFinalize} strategy={strategy} archive={archive} onSwitchMonth={(s) => setStrategy(s)} brandDNA={activeProject.business_info?.brandDNA} onUpdateBrand={() => {}} lang={lang} isCloudEnabled={cloudStatus === 'online'} assetSummary={{ images: generatedImages.length, videos: generatedVideos.length }} />
+        <ProjectPortal
+          isOpen={isPortalOpen}
+          onClose={() => setIsPortalOpen(false)}
+          projectKey={activeProject.id}
+          onSignOut={handleSignOut}
+          onExport={handleExportMoil}
+          onExportCSV={handleExportCSV}
+          onImport={handleImport}
+          onFinalize={handleFinalize}
+          strategy={strategy}
+          archive={archive}
+          onSwitchMonth={(s) => setStrategy(s)}
+          brandDNA={activeProject.business_info?.brandDNA}
+          onUpdateBrand={() => { }}
+          lang={lang}
+          isCloudEnabled={cloudStatus === 'online'}
+          assetSummary={{ images: generatedImages.length, videos: generatedVideos.length }}
+        />
+      )}
+
+      {finalizedStrategy && (
+        <MonthOverView
+          strategy={finalizedStrategy}
+          lang={lang}
+          onKickoff={handleKickoffNextMonth}
+          onClose={() => { setFinalizedStrategy(null); setView('dashboard'); }}
+          assetSummary={{ images: generatedImages.length, videos: generatedVideos.length }}
+        />
       )}
     </div>
   );
