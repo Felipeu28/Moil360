@@ -455,10 +455,10 @@ ${type}:
 
   return {
     monthId: new Date(nextMonthDate).toISOString().slice(0, 7),
-    summary: strategySummary,
-    quality_score: qualityScore,
     calendar: validatedCalendar,
     insights,
+    summary: strategySummary,
+    quality_score: qualityScore,
     context: {
       today: nextMonthDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
@@ -469,6 +469,49 @@ ${type}:
     }
   };
 }
+
+/**
+ * Generates a CSV string from a StrategyResult
+ */
+export function generateCSV(strategy: StrategyResult): string {
+  if (!strategy || !strategy.calendar) return "";
+
+  const headers = [
+    "Day",
+    "Date",
+    "Topic",
+    "Content Type",
+    "Hook",
+    "Full Caption",
+    "Call to Action",
+    "Hashtags",
+    "Best Time to Post",
+    "Requires Video"
+  ];
+
+  const rows = strategy.calendar.map(day => {
+    const clean = (str: string) => {
+      const val = str || '';
+      return `"${val.replace(/"/g, '""')}"`;
+    };
+
+    return [
+      day.day,
+      day.date,
+      clean(day.topic),
+      clean(day.content_type),
+      clean(day.hook),
+      clean(day.full_caption),
+      clean(day.cta),
+      clean(day.hashtags.join(' ')),
+      clean(day.best_time),
+      day.requires_video ? "Yes" : "No"
+    ].join(",");
+  });
+
+  return [headers.join(","), ...rows].join("\n");
+}
+
 
 export async function regenerateDay(business: BusinessInfo, currentDay: ContentDay, feedback: string): Promise<ContentDay> {
   // ✅ WEEK 1: Apply caption variety to regenerated days
@@ -934,18 +977,15 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [
-              { text: videoPrompt },
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data
-                }
+          instances: [
+            {
+              prompt: videoPrompt,
+              image: {
+                mime_type: mimeType,
+                data: base64Data
               }
-            ]
-          }]
+            }
+          ]
         })
       }
     );
