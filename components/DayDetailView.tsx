@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ContentDay, GeneratedImage, GeneratedVideo, OverlaySettings, BrandDNA, Language } from '../types';
 import { generateAIImage, generateAIVideo, translateContent } from '../services/geminiService';
 import { translations } from '../services/i18nService';
-import { 
-  Copy, ImageIcon, LayoutGrid, Sparkles, MessageSquare, RefreshCw, Check, Video, 
-  Edit3, Save, X, ChevronRight, ChevronLeft, Download, Film, Zap, Maximize, Move, Bold, Globe, Layers, Target, Hash, Type as TypeIcon, AlignCenter, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Wand2, Palette, Sliders, AlertCircle, AlignLeft, AlignRight, Square, Box, Sun, Trash2, RotateCcw, Undo2, LayoutTemplate, Grid3X3
+import {
+  Copy, ImageIcon, LayoutGrid, Sparkles, MessageSquare, RefreshCw, Check, Video,
+  Edit3, Save, X, ChevronRight, ChevronLeft, Download, Film, Zap, Maximize, Move, Bold, Globe, Layers, Target, Hash, Type as TypeIcon, AlignCenter, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Wand2, Palette, Sliders, AlertCircle, AlignLeft, AlignRight, Square, Box, Sun, Trash2, RotateCcw, Undo2, LayoutTemplate, Grid3X3, Plus, RotateCw, Upload
 } from 'lucide-react';
 
 interface Props {
@@ -86,11 +86,11 @@ const wrapText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
     }
     if (currentLine) lines.push(currentLine);
   });
-  
+
   return lines;
 };
 
-export const DayDetailView: React.FC<Props> = ({ 
+export const DayDetailView: React.FC<Props> = ({
   day, generatedImages, generatedVideos, visualLayers, onUpdateLayers, onImageGenerated, onVideoGenerated, onRegenerate, onManualEdit, onDeleteAsset, brandDNA, lang
 }) => {
   const t = translations[lang];
@@ -101,64 +101,70 @@ export const DayDetailView: React.FC<Props> = ({
   const [videoEngine, setVideoEngine] = useState<'gemini' | 'qwen'>('gemini');
   const [copied, setCopied] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
-  
+
   const [targetLang, setTargetLang] = useState<'English' | 'Spanish' | 'Other'>('English');
   const [customLang, setCustomLang] = useState('');
-  
+
   const [showRewritePanel, setShowRewritePanel] = useState(false);
   const [rewriteFeedback, setRewriteFeedback] = useState('');
-  
+
   const [showImgEditPanel, setShowImgEditPanel] = useState(false);
   const [imgEditFeedback, setImgEditFeedback] = useState('');
-  
+
   const [motionSimulation, setMotionSimulation] = useState(false);
   const [showOverlayDesigner, setShowOverlayDesigner] = useState(false);
   const [gridMode, setGridMode] = useState<'none' | 'thirds' | 'golden'>('none');
-  const [activeSnapLines, setActiveSnapLines] = useState<{x: number | null, y: number | null}>({ x: null, y: null });
+  const [activeSnapLines, setActiveSnapLines] = useState<{ x: number | null, y: number | null }>({ x: null, y: null });
   const [activeLayerIndex, setActiveLayerIndex] = useState(0);
-  
+
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
+
   const [draggingLayer, setDraggingLayer] = useState<number | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const [previewWidth, setPreviewWidth] = useState(320);
-  
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [editField, setEditField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-  
+
   const currentDayImages = generatedImages.filter(img => img.dayIndex === day.day);
   const currentDayVideos = generatedVideos.filter(v => v.dayIndex === day.day);
-  
+
   const galleryAssets = useMemo(() => [
-    ...currentDayImages.map((img, i) => ({ 
-      type: 'image' as const, 
-      url: img.url, 
+    ...currentDayImages.map((img, i) => ({
+      type: 'image' as const,
+      url: img.url,
       label: `Draft v${i + 1} (${img.modelId === 'qwen' ? 'Qwen' : 'Gemini'})`,
       createdAt: img.createdAt,
-      rawUrl: img.url 
-    })), 
-    ...currentDayVideos.map((vid, i) => ({ 
-      type: 'video' as const, 
-      url: vid.url, 
-      label: `Render v${vid.version} (${vid.modelId === 'qwen' ? 'Qwen' : 'Gemini'})`, 
+      rawUrl: img.url
+    })),
+    ...currentDayVideos.map((vid, i) => ({
+      type: 'video' as const,
+      url: vid.url,
+      label: `Render v${vid.version} (${vid.modelId === 'qwen' ? 'Qwen' : 'Gemini'})`,
       createdAt: vid.createdAt,
       rawUrl: vid.url
     }))
   ].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)), [currentDayImages, currentDayVideos]);
 
   const [assetIndex, setAssetIndex] = useState(Math.max(0, galleryAssets.length - 1));
-  
+
   // Safe indexing for day switching
   const activeAsset = galleryAssets[assetIndex] || galleryAssets[galleryAssets.length - 1];
 
   const getDefaultLayers = useCallback((): OverlaySettings[] => [
-    { 
-      text: day.hook, font: FONTS[0].family, color: COLORS[0].value, size: 25, isBold: true, pos: { x: 50, y: 35 }, 
+    {
+      type: 'text', id: 'layer-hook',
+      text: day.hook, font: FONTS[0].family, color: COLORS[0].value, size: 25, isBold: true, pos: { x: 50, y: 35 },
+      rotation: 0, scale: 1, opacity: 1,
       glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 15, strokeColor: '#000000', strokeWidth: 0
     },
-    { 
-      text: '', font: FONTS[2].family, color: COLORS[0].value, size: 20, isBold: false, pos: { x: 50, y: 65 }, 
+    {
+      type: 'text', id: 'layer-body',
+      text: '', font: FONTS[2].family, color: COLORS[0].value, size: 20, isBold: false, pos: { x: 50, y: 65 },
+      rotation: 0, scale: 1, opacity: 1,
       glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0
     }
   ], [day.hook]);
@@ -181,7 +187,7 @@ export const DayDetailView: React.FC<Props> = ({
     const finalData = [...layers];
     (finalData as any).visualMode = mode;
     onUpdateLayers({ ...visualLayers, [activeAsset.url]: finalData });
-    
+
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       setSaveStatus('saved');
@@ -237,10 +243,10 @@ export const DayDetailView: React.FC<Props> = ({
     const rect = previewRef.current.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
+
     let x = Math.min(Math.max(5, ((clientX - rect.left) / rect.width) * 100), 95);
     let y = Math.min(Math.max(5, ((clientY - rect.top) / rect.height) * 100), 95);
-    
+
     let snapX: number | null = null;
     let snapY: number | null = null;
     const points = gridMode === 'golden' ? SNAP_POINTS_GOLDEN : SNAP_POINTS_THIRDS;
@@ -277,160 +283,155 @@ export const DayDetailView: React.FC<Props> = ({
   }, [draggingLayer, handleDragMove, handleDragEnd]);
 
   // ============================================================================
-// WYSIWYG FIX: handleDownload function
-// ============================================================================
-// FILE: components/DayDetailView.tsx
-// REPLACE: Lines 281-378 (entire handleDownload function)
-// ============================================================================
+  // WYSIWYG FIX: handleDownload function
+  // ============================================================================
+  // FILE: components/DayDetailView.tsx
+  // REPLACE: Lines 281-378 (entire handleDownload function)
+  // ============================================================================
 
-const handleDownload = async () => {
-  if (!activeAsset || !currentLayers || currentLayers.length === 0) return;
-  
-  console.log('🎨 WYSIWYG Download Started', {
-    aspectRatio,
-    previewWidth,
-    layerCount: currentLayers.length
-  });
-  
-  try {
-    let finalUrl = activeAsset.rawUrl;
-    if (activeAsset.type === 'image') {
-      const canvas = document.createElement('canvas');
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      await new Promise((resolve, reject) => {
-        img.onload = resolve; img.onerror = reject; img.src = activeAsset.rawUrl;
-      });
-      
-      // ✅ FIX #1: Dynamic canvas dimensions based on aspect ratio
-      let width: number, height: number;
-      if (aspectRatio === '16:9') {
-        width = 1920; height = 1080;  // Landscape
-      } else if (aspectRatio === '1:1') {
-        width = 1080; height = 1080;  // Square
-      } else {
-        width = 1080; height = 1920;  // Portrait (9:16)
-      }
-      
-      console.log('📐 Canvas Dimensions:', { width, height, aspectRatio });
-      
-      canvas.width = width; 
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      
-      // Apply visual filters
-      const filterObj = VISUAL_MODES.find(m => m.id === activeVisualMode);
-      if (filterObj?.id === 'noir') ctx.filter = 'grayscale(1) brightness(0.75) contrast(1.25)';
-      else if (filterObj?.id === 'vintage') ctx.filter = 'sepia(1) brightness(0.9) contrast(0.9) saturate(0.5)';
-      else if (filterObj?.id === 'neon') ctx.filter = 'hue-rotate(180deg) saturate(2) contrast(1.1)';
-      else if (filterObj?.id === 'chrome') ctx.filter = 'contrast(1.5) brightness(1.1) saturate(1.5) hue-rotate(15deg)';
+  const handleDownload = async () => {
+    if (!activeAsset || !currentLayers || currentLayers.length === 0) return;
 
-      ctx.drawImage(img, 0, 0, width, height);
-      ctx.filter = 'none';
-      await document.fonts.ready;
+    console.log('🎨 WYSIWYG Download Started', {
+      aspectRatio,
+      previewWidth,
+      layerCount: currentLayers.length
+    });
 
-      // ✅ FIX #2: Calculate scale factor from actual preview width
-      const previewActualWidth = previewRef.current?.offsetWidth || 320;
-      const scaleFactor = width / previewActualWidth;
-      
-      console.log('🔢 Scale Factor:', { previewActualWidth, scaleFactor });
-
-      for (const layer of currentLayers) {
-        if (!layer || !layer.text) continue;
-        
-        // ✅ FIX #3: Font size scales from preview dimensions
-        const fontSize = layer.size * scaleFactor;
-        const fontString = `${layer.isBold ? '900' : '500'} ${fontSize}px "${layer.font}"`;
-        await document.fonts.load(fontString);
-
-        console.log('🔤 Layer Font:', { 
-          layerSize: layer.size, 
-          fontSize, 
-          text: layer.text.substring(0, 20) 
+    try {
+      let finalUrl = activeAsset.rawUrl;
+      if (activeAsset.type === 'image') {
+        const canvas = document.createElement('canvas');
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        await new Promise((resolve, reject) => {
+          img.onload = resolve; img.onerror = reject; img.src = activeAsset.rawUrl;
         });
 
-        ctx.save();
-        ctx.font = fontString;
-        ctx.textAlign = 'center'; 
-        ctx.textBaseline = 'middle';
-        
-        const maxWidth = width * 0.85; 
-        const lines = wrapText(ctx, layer.text, maxWidth);
-        const lineHeight = fontSize * 1.1; 
-        const targetX = (layer.pos.x / 100) * width;
-        const targetY = (layer.pos.y / 100) * height;
-        const padX = fontSize * 0.45; 
-        const padY = fontSize * 0.25; 
-        const lineSpacing = fontSize * 0.15;
+        let width: number, height: number;
+        if (aspectRatio === '16:9') {
+          width = 1920; height = 1080;
+        } else if (aspectRatio === '1:1') {
+          width = 1080; height = 1080;
+        } else {
+          width = 1080; height = 1920;
+        }
 
-        console.log('📍 Text Position:', { 
-          targetX, 
-          targetY, 
-          lines: lines.length,
-          lineHeight 
-        });
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
 
-        // Glass background rendering
-        if (layer.glassStyle && layer.glassStyle !== 'none') {
+        const filterObj = VISUAL_MODES.find(m => m.id === activeVisualMode);
+        if (filterObj?.id === 'noir') ctx.filter = 'grayscale(1) brightness(0.75) contrast(1.25)';
+        else if (filterObj?.id === 'vintage') ctx.filter = 'sepia(1) brightness(0.9) contrast(0.9) saturate(0.5)';
+        else if (filterObj?.id === 'neon') ctx.filter = 'hue-rotate(180deg) saturate(2) contrast(1.1)';
+        else if (filterObj?.id === 'chrome') ctx.filter = 'contrast(1.5) brightness(1.1) saturate(1.5) hue-rotate(15deg)';
+
+        ctx.drawImage(img, 0, 0, width, height);
+        ctx.filter = 'none';
+        await document.fonts.ready;
+
+        const previewActualWidth = previewRef.current?.offsetWidth || 320;
+        const scaleFactor = width / previewActualWidth;
+
+        for (const layer of currentLayers) {
+          if (!layer) continue;
+
           ctx.save();
-          if (layer.glassStyle === 'glass-light') ctx.fillStyle = 'rgba(255,255,255,0.25)';
-          else if (layer.glassStyle === 'glass-dark') ctx.fillStyle = 'rgba(0,0,0,0.55)';
-          else if (layer.glassStyle === 'glass-tint') ctx.fillStyle = 'rgba(79,70,229,0.35)';
+          const targetX = (layer.pos.x / 100) * width;
+          const targetY = (layer.pos.y / 100) * height;
 
-          const totalBlockHeight = (lines.length * lineHeight) + ((lines.length - 1) * lineSpacing);
-          lines.forEach((l, i) => {
-            const metrics = ctx.measureText(l.trim().toUpperCase());
-            const bgW = metrics.width + (padX * 2);
-            const bgH = lineHeight + (padY * 2);
-            const yOffsetFromCenter = (i * (lineHeight + lineSpacing)) - (totalBlockHeight / 2) + (lineHeight / 2);
-            ctx.fillRect(targetX - bgW / 2, targetY + yOffsetFromCenter - bgH / 2, bgW, bgH);
-            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(targetX - bgW / 2, targetY + yOffsetFromCenter - bgH / 2, bgW, bgH);
-          });
+          ctx.translate(targetX, targetY);
+          ctx.rotate((layer.rotation || 0) * Math.PI / 180);
+          ctx.scale(layer.scale || 1, layer.scale || 1);
+          ctx.globalAlpha = layer.opacity ?? 1;
+
+          if (layer.type === 'image' && layer.imageUrl) {
+            const layerImg = new Image();
+            layerImg.crossOrigin = "anonymous";
+            await new Promise((resolve, reject) => {
+              layerImg.onload = resolve; layerImg.onerror = reject; layerImg.src = layer.imageUrl!;
+            });
+            const imgW = (layer.size / 100) * width;
+            const imgH = (imgW / layerImg.width) * layerImg.height;
+            if (layer.hasShadow) {
+              ctx.shadowColor = 'rgba(0,0,0,0.5)';
+              ctx.shadowBlur = 20 * scaleFactor;
+              ctx.shadowOffsetY = 10 * scaleFactor;
+            }
+            ctx.drawImage(layerImg, -imgW / 2, -imgH / 2, imgW, imgH);
+          } else if (layer.type === 'text' && layer.text) {
+            const fontSize = layer.size * scaleFactor;
+            const fontString = `${layer.isBold ? '900' : '500'} ${fontSize}px "${layer.font}"`;
+            await document.fonts.load(fontString);
+            ctx.font = fontString;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const maxWidth = width * 0.85;
+            const lines = wrapText(ctx, layer.text, maxWidth);
+            const lineHeight = fontSize * 1.1;
+            const padX = fontSize * 0.45;
+            const padY = fontSize * 0.25;
+            const lineSpacing = fontSize * 0.15;
+
+            const totalBlockHeight = (lines.length * lineHeight) + ((lines.length - 1) * lineSpacing);
+
+            if (layer.glassStyle && layer.glassStyle !== 'none') {
+              ctx.save();
+              if (layer.glassStyle === 'glass-light') ctx.fillStyle = 'rgba(255,255,255,0.25)';
+              else if (layer.glassStyle === 'glass-dark') ctx.fillStyle = 'rgba(0,0,0,0.55)';
+              else if (layer.glassStyle === 'glass-tint') ctx.fillStyle = 'rgba(79,70,229,0.35)';
+
+              lines.forEach((l, i) => {
+                const metrics = ctx.measureText(l.trim().toUpperCase());
+                const bgW = metrics.width + (padX * 2);
+                const bgH = lineHeight + (padY * 2);
+                const yOffset = (i * (lineHeight + lineSpacing)) - (totalBlockHeight / 2) + (lineHeight / 2);
+                ctx.fillRect(-bgW / 2, yOffset - bgH / 2, bgW, bgH);
+                ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-bgW / 2, yOffset - bgH / 2, bgW, bgH);
+              });
+              ctx.restore();
+            }
+
+            lines.forEach((l, i) => {
+              const yOffset = (i * (lineHeight + lineSpacing)) - (totalBlockHeight / 2) + (lineHeight / 2);
+              const textToDraw = l.trim().toUpperCase();
+              ctx.save();
+              if (layer.hasShadow) {
+                ctx.shadowColor = 'rgba(0,0,0,0.85)';
+                ctx.shadowBlur = ((layer.shadowBlur || 15) / 100) * fontSize;
+                ctx.shadowOffsetY = 8;
+              }
+              if (layer.strokeWidth > 0) {
+                ctx.strokeStyle = layer.strokeColor || '#000000';
+                ctx.lineWidth = ((layer.strokeWidth || 0) / 100) * fontSize;
+                ctx.lineJoin = 'round';
+                ctx.strokeText(textToDraw, 0, yOffset);
+              }
+              ctx.fillStyle = layer.color;
+              ctx.fillText(textToDraw, 0, yOffset);
+              ctx.restore();
+            });
+          }
           ctx.restore();
         }
 
-        // Text rendering
-        const totalBlockHeightText = (lines.length * lineHeight) + ((lines.length - 1) * lineSpacing);
-        lines.forEach((l, i) => {
-          const yOffsetFromCenter = (i * (lineHeight + lineSpacing)) - (totalBlockHeightText / 2) + (lineHeight / 2);
-          const textToDraw = l.trim().toUpperCase();
-          ctx.save();
-          if (layer.hasShadow) {
-            ctx.shadowColor = 'rgba(0,0,0,0.85)';
-            ctx.shadowBlur = ((layer.shadowBlur || 15) / 100) * fontSize;
-            ctx.shadowOffsetY = 8;
-          }
-          if (layer.strokeWidth > 0) {
-            ctx.strokeStyle = layer.strokeColor || '#000000';
-            ctx.lineWidth = ((layer.strokeWidth || 0) / 100) * fontSize;
-            ctx.lineJoin = 'round';
-            ctx.strokeText(textToDraw, targetX, targetY + yOffsetFromCenter);
-          }
-          ctx.fillStyle = layer.color;
-          ctx.fillText(textToDraw, targetX, targetY + yOffsetFromCenter);
-          ctx.restore();
-        });
-        ctx.restore();
+        finalUrl = canvas.toDataURL('image/png', 1.0);
       }
-      
-      finalUrl = canvas.toDataURL('image/png', 1.0);
-      console.log('✅ Canvas rendered successfully');
+
+      const link = document.createElement('a');
+      link.href = finalUrl;
+      link.download = `C360_Day${day.day}_V${assetIndex + 1}.${activeAsset.type === 'image' ? 'png' : 'mp4'}`;
+      link.click();
+    } catch (err) {
+      console.error("❌ Export Failed:", err);
+      alert("Failed to compile final visual assets.");
     }
-    
-    const link = document.createElement('a');
-    link.href = finalUrl;
-    link.download = `C360_Day${day.day}_V${assetIndex+1}.${activeAsset.type === 'image' ? 'png' : 'mp4'}`;
-    link.click();
-    
-    console.log('💾 Download triggered:', link.download);
-  } catch (err) { 
-    console.error("❌ Export Failed:", err);
-    alert("Failed to compile final visual assets.");
-  }
-};
+  };
 
   const handleTranslate = async () => {
     const langKey = targetLang === 'Other' ? customLang : targetLang;
@@ -450,7 +451,7 @@ const handleDownload = async () => {
       setLoadingImg(true);
       try {
         console.log(`🎨 Generating image with aspect ratio: ${aspectRatio}`);
-const url = await generateAIImage(day.image_prompts[0], undefined, undefined, imageEngine, aspectRatio);(day.image_prompts[0], undefined, undefined, imageEngine, aspectRatio);
+        const url = await generateAIImage(day.image_prompts[0], undefined, undefined, imageEngine, aspectRatio);
         onImageGenerated({ dayIndex: day.day, promptIndex: 0, url, modelId: imageEngine, createdAt: Date.now() });
       } catch (err: any) { alert(err.message); } finally { setLoadingImg(false); }
       return;
@@ -460,7 +461,7 @@ const url = await generateAIImage(day.image_prompts[0], undefined, undefined, im
     try {
       const existingBase64 = currentDayImages.length > 0 ? currentDayImages[currentDayImages.length - 1].url : undefined;
       console.log(`🎨 Regenerating image with aspect ratio: ${aspectRatio}`);
-const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existingBase64, imageEngine, aspectRatio);
+      const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existingBase64, imageEngine, aspectRatio);
       onImageGenerated({ dayIndex: day.day, promptIndex: nextPromptIndex, url, modelId: imageEngine, createdAt: Date.now() });
       setShowImgEditPanel(false); setImgEditFeedback('');
     } catch (err: any) { alert(err.message); } finally { setLoadingImg(false); }
@@ -477,24 +478,24 @@ const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existin
     try {
       const sourceImage = currentDayImages[currentDayImages.length - 1].url;
       const { url, uri, blob } = await generateAIVideo(
-      sourceImage, 
-      day.topic, 
-      day.platform_strategy,
-      day.content_type,
-      brandDNA,
-      videoEngine  // ← ADD THIS LINE
-    );
-      
+        sourceImage,
+        day.topic,
+        day.platform_strategy,
+        day.content_type,
+        brandDNA,
+        videoEngine  // ← ADD THIS LINE
+      );
+
       onVideoGenerated({ dayIndex: day.day, url, permanentUri: uri, version: currentDayVideos.length + 1, createdAt: Date.now(), modelId: videoEngine, blob });
-  } catch (err: any) { 
-    alert(err.message); 
-    if (err.message && err.message.includes("Requested entity was not found")) {
-       if (typeof (window as any).aistudio !== 'undefined') {
+    } catch (err: any) {
+      alert(err.message);
+      if (err.message && err.message.includes("Requested entity was not found")) {
+        if (typeof (window as any).aistudio !== 'undefined') {
           await (window as any).aistudio.openSelectKey();
-       }
-    }
-  } finally { setLoadingVid(false); }
-};
+        }
+      }
+    } finally { setLoadingVid(false); }
+  };
 
   const startManualEdit = (field: string, value: string) => { setEditField(field); setEditValue(value); };
   const saveManualEdit = () => {
@@ -504,6 +505,43 @@ const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existin
     else { (updatedDay as any)[editField] = editValue; }
     onManualEdit(updatedDay);
     setEditField(null);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeAsset) return;
+    setUploadingImage(true);
+    try {
+      const { storage } = await import('../services/storageService');
+      const projectId = (window as any).currentProjectId || 'local_default';
+      const url = await storage.uploadAsset(projectId, day.day, 'image', file, { source: 'user_personalized' });
+
+      const newLayer: OverlaySettings = {
+        type: 'image',
+        id: `layer-img-${Date.now()}`,
+        imageUrl: url,
+        pos: { x: 50, y: 50 },
+        size: 30,
+        rotation: 0,
+        scale: 1,
+        opacity: 1,
+        glassStyle: 'none',
+        textAlign: 'center',
+        hasShadow: false,
+        shadowBlur: 10,
+        strokeColor: '#000000',
+        strokeWidth: 0
+      };
+
+      const newLayers = [...currentLayers, newLayer];
+      saveVisualEdits(newLayers, activeVisualMode);
+      setActiveLayerIndex(newLayers.length - 1);
+    } catch (err: any) {
+      alert("Failed to upload image: " + err.message);
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleDelete = () => {
@@ -527,19 +565,19 @@ const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existin
             <h2 className="text-4xl font-black leading-tight max-w-2xl tracking-tighter">{day.topic}</h2>
           </div>
           <div className="flex items-center gap-3">
-             <button onClick={() => setShowRewritePanel(!showRewritePanel)} className={`shrink-0 px-8 py-5 rounded-3xl font-black text-xs transition-all flex items-center gap-2 border uppercase tracking-widest ${showRewritePanel ? 'bg-indigo-600 border-indigo-500 shadow-lg' : 'bg-white/5 hover:bg-white/10 border-white/10'}`}>
-                <Sparkles className="w-4 h-4" /> {t.rewrite}
-             </button>
-             <button onClick={() => { navigator.clipboard.writeText(`${day.hook}\n\n${day.full_caption}\n\n${day.cta}\n\n${day.hashtags.join(' ')}`); setCopied('Full'); setTimeout(() => setCopied(null), 2000); }} className="shrink-0 bg-white text-slate-900 px-8 py-5 rounded-3xl font-black text-xs hover:bg-slate-100 transition-all flex items-center gap-2 uppercase tracking-widest shadow-2xl">
-               {copied === 'Full' ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />} {copied === 'Full' ? t.copied : t.copy_post}
-             </button>
+            <button onClick={() => setShowRewritePanel(!showRewritePanel)} className={`shrink-0 px-8 py-5 rounded-3xl font-black text-xs transition-all flex items-center gap-2 border uppercase tracking-widest ${showRewritePanel ? 'bg-indigo-600 border-indigo-500 shadow-lg' : 'bg-white/5 hover:bg-white/10 border-white/10'}`}>
+              <Sparkles className="w-4 h-4" /> {t.rewrite}
+            </button>
+            <button onClick={() => { navigator.clipboard.writeText(`${day.hook}\n\n${day.full_caption}\n\n${day.cta}\n\n${day.hashtags.join(' ')}`); setCopied('Full'); setTimeout(() => setCopied(null), 2000); }} className="shrink-0 bg-white text-slate-900 px-8 py-5 rounded-3xl font-black text-xs hover:bg-slate-100 transition-all flex items-center gap-2 uppercase tracking-widest shadow-2xl">
+              {copied === 'Full' ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />} {copied === 'Full' ? t.copied : t.copy_post}
+            </button>
           </div>
         </div>
         {showRewritePanel && (
           <div className="absolute inset-x-0 bottom-0 translate-y-full bg-slate-800 p-10 z-[120] border-t border-white/5 animate-in slide-in-from-top duration-300 shadow-2xl">
             <div className="max-w-4xl mx-auto flex gap-4">
-                <input autoFocus type="text" value={rewriteFeedback} onChange={e => setRewriteFeedback(e.target.value)} placeholder="e.g. Make it shorter, add more urgency..." className="flex-1 bg-white border border-white/10 rounded-2xl px-8 py-5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 font-bold" onKeyDown={e => e.key === 'Enter' && onRegenerate(day, rewriteFeedback)} />
-                <button onClick={() => onRegenerate(day, rewriteFeedback)} className="bg-indigo-600 px-10 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-indigo-500 transition-all">Apply</button>
+              <input autoFocus type="text" value={rewriteFeedback} onChange={e => setRewriteFeedback(e.target.value)} placeholder="e.g. Make it shorter, add more urgency..." className="flex-1 bg-white border border-white/10 rounded-2xl px-8 py-5 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 font-bold" onKeyDown={e => e.key === 'Enter' && onRegenerate(day, rewriteFeedback)} />
+              <button onClick={() => onRegenerate(day, rewriteFeedback)} className="bg-indigo-600 px-10 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-indigo-500 transition-all">Apply</button>
             </div>
           </div>
         )}
@@ -548,26 +586,26 @@ const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existin
       <div className="p-10 grid grid-cols-1 lg:grid-cols-2 gap-16">
         <div className="space-y-10">
           <section className="p-8 bg-slate-900 rounded-[2.5rem] border border-white/10 shadow-2xl space-y-6">
-             <div className="flex items-center justify-between">
-                <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2"><Globe className="w-4 h-4" /> {t.localize_intel}</h3>
-             </div>
-             <div className="flex flex-col gap-4">
-                <div className="flex bg-white/5 p-1.5 rounded-2xl gap-1">
-                   {['English', 'Spanish', 'Other'].map(l => (
-                     <button key={l} onClick={() => setTargetLang(l as any)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${targetLang === l ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>{l}</button>
-                   ))}
-                </div>
-                {targetLang === 'Other' && <input type="text" value={customLang} onChange={e => setCustomLang(e.target.value)} placeholder="Language Name..." className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500" />}
-                <button onClick={handleTranslate} disabled={loadingTranslate} className="w-full bg-white text-slate-900 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-slate-50 transition-all">
-                  {loadingTranslate ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-600" />} {t.translate_btn}
-                </button>
-             </div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2"><Globe className="w-4 h-4" /> {t.localize_intel}</h3>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="flex bg-white/5 p-1.5 rounded-2xl gap-1">
+                {['English', 'Spanish', 'Other'].map(l => (
+                  <button key={l} onClick={() => setTargetLang(l as any)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${targetLang === l ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>{l}</button>
+                ))}
+              </div>
+              {targetLang === 'Other' && <input type="text" value={customLang} onChange={e => setCustomLang(e.target.value)} placeholder="Language Name..." className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500" />}
+              <button onClick={handleTranslate} disabled={loadingTranslate} className="w-full bg-white text-slate-900 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-slate-50 transition-all">
+                {loadingTranslate ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-600" />} {t.translate_btn}
+              </button>
+            </div>
           </section>
 
           <section className="space-y-4">
             <div className="flex justify-between items-center px-2">
-               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-500" /> {t.hook}</h3>
-               <button onClick={() => startManualEdit('hook', day.hook)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-slate-400" /></button>
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-500" /> {t.hook}</h3>
+              <button onClick={() => startManualEdit('hook', day.hook)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-slate-400" /></button>
             </div>
             {editField === 'hook' ? (
               <textarea autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={saveManualEdit} className="w-full p-8 border-2 border-indigo-500 rounded-3xl font-bold italic text-xl shadow-inner outline-none bg-white text-slate-900" />
@@ -575,248 +613,305 @@ const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existin
           </section>
 
           <section className="space-y-4">
-             <div className="flex justify-between items-center px-2">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><MessageSquare className="w-4 h-4 text-indigo-500" /> {t.caption}</h3>
-                <button onClick={() => startManualEdit('full_caption', day.full_caption)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-slate-400" /></button>
-             </div>
-             {editField === 'full_caption' ? (
-               <textarea autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={saveManualEdit} className="w-full min-h-[400px] p-8 border-2 border-indigo-500 rounded-3xl font-medium leading-relaxed shadow-inner outline-none bg-white text-slate-900" />
-             ) : <div className="p-10 bg-slate-50 rounded-[2.5rem] border border-slate-100 text-slate-700 leading-relaxed whitespace-pre-wrap text-base font-medium min-h-[400px]">{day.full_caption}</div>}
+            <div className="flex justify-between items-center px-2">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><MessageSquare className="w-4 h-4 text-indigo-500" /> {t.caption}</h3>
+              <button onClick={() => startManualEdit('full_caption', day.full_caption)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-slate-400" /></button>
+            </div>
+            {editField === 'full_caption' ? (
+              <textarea autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={saveManualEdit} className="w-full min-h-[400px] p-8 border-2 border-indigo-500 rounded-3xl font-medium leading-relaxed shadow-inner outline-none bg-white text-slate-900" />
+            ) : <div className="p-10 bg-slate-50 rounded-[2.5rem] border border-slate-100 text-slate-700 leading-relaxed whitespace-pre-wrap text-base font-medium min-h-[400px]">{day.full_caption}</div>}
           </section>
 
           <section className="space-y-4">
-             <div className="flex justify-between items-center px-2">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Target className="w-4 h-4 text-emerald-500" /> {t.cta}</h3>
-                <button onClick={() => startManualEdit('cta', day.cta)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-slate-400" /></button>
-             </div>
-             {editField === 'cta' ? (
-               <input autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={saveManualEdit} className="w-full p-6 border-2 border-indigo-500 rounded-2xl font-black text-slate-900 outline-none bg-white" />
-             ) : <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-900 font-black text-sm uppercase tracking-widest">{day.cta}</div>}
+            <div className="flex justify-between items-center px-2">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Target className="w-4 h-4 text-emerald-500" /> {t.cta}</h3>
+              <button onClick={() => startManualEdit('cta', day.cta)} className="p-2 hover:bg-slate-100 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-slate-400" /></button>
+            </div>
+            {editField === 'cta' ? (
+              <input autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={saveManualEdit} className="w-full p-6 border-2 border-indigo-500 rounded-2xl font-black text-slate-900 outline-none bg-white" />
+            ) : <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100 text-emerald-900 font-black text-sm uppercase tracking-widest">{day.cta}</div>}
           </section>
 
           <section className="space-y-4">
-             <div className="flex justify-between items-center px-2">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Hash className="w-4 h-4 text-rose-500" /> {t.hashtags}</h3>
-                <button onClick={() => startManualEdit('hashtags', day.hashtags.join(' '))} className="p-2 hover:bg-slate-100 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-slate-400" /></button>
-             </div>
-             {editField === 'hashtags' ? (
-               <textarea autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={saveManualEdit} className="w-full p-6 border-2 border-indigo-500 rounded-2xl font-medium outline-none bg-white text-slate-900" />
-             ) : <div className="flex flex-wrap gap-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                {day.hashtags.map((tag, i) => (
-                  <span key={i} className="px-3 py-1 bg-white text-indigo-600 rounded-lg text-[10px] font-black shadow-sm border border-slate-100">{tag}</span>
-                ))}
-             </div>}
+            <div className="flex justify-between items-center px-2">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Hash className="w-4 h-4 text-rose-500" /> {t.hashtags}</h3>
+              <button onClick={() => startManualEdit('hashtags', day.hashtags.join(' '))} className="p-2 hover:bg-slate-100 rounded-xl transition-colors"><Edit3 className="w-4 h-4 text-slate-400" /></button>
+            </div>
+            {editField === 'hashtags' ? (
+              <textarea autoFocus value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={saveManualEdit} className="w-full p-6 border-2 border-indigo-500 rounded-2xl font-medium outline-none bg-white text-slate-900" />
+            ) : <div className="flex flex-wrap gap-2 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+              {day.hashtags.map((tag, i) => (
+                <span key={i} className="px-3 py-1 bg-white text-indigo-600 rounded-lg text-[10px] font-black shadow-sm border border-slate-100">{tag}</span>
+              ))}
+            </div>}
           </section>
         </div>
 
         <div className="space-y-10 lg:border-l lg:pl-16 border-slate-100">
-           <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 space-y-6 shadow-inner">
-                 <div className="flex justify-between items-center mb-2">
-                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{t.visual_architect}</p>
-                    <div className="flex items-center gap-3 justify-end">
-                       <span className="text-[8px] font-black text-slate-400 uppercase">{t.engine_slot}</span>
-                       <div className="flex gap-1.5 bg-slate-200 p-1 rounded-xl">
-                          <button onClick={() => setImageEngine('gemini')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${imageEngine === 'gemini' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>{t.standard}</button>
-                          <button onClick={() => setImageEngine('qwen')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${imageEngine === 'qwen' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>Qwen (Backup)</button>
-                       </div>
-                    </div>
-                 </div>
-             
-  <div className="space-y-4">
-    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2">
-      <LayoutGrid className="w-4 h-4 text-indigo-500" /> Image Dimensions
-    </label>
-    <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl">
-      <button onClick={() => setAspectRatio('9:16')} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${aspectRatio === '9:16' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-3 h-4 border-2 border-current rounded-sm"></div>
-          <span className="text-[8px]">Portrait</span>
-          <span className="text-[7px] opacity-60">9:16</span>
-        </div>
-      </button>
-      <button onClick={() => setAspectRatio('16:9')} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${aspectRatio === '16:9' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-4 h-3 border-2 border-current rounded-sm"></div>
-          <span className="text-[8px]">Landscape</span>
-          <span className="text-[7px] opacity-60">16:9</span>
-        </div>
-      </button>
-      <button onClick={() => setAspectRatio('1:1')} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${aspectRatio === '1:1' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
-        <div className="flex flex-col items-center gap-1">
-          <div className="w-3 h-3 border-2 border-current rounded-sm"></div>
-          <span className="text-[8px]">Square</span>
-          <span className="text-[7px] opacity-60">1:1</span>
-        </div>
-      </button>
-    </div>
-    <p className="text-[8px] text-slate-400 italic px-2">
-      Portrait: Instagram Stories, Reels | Landscape: YouTube, Blog | Square: Instagram Feed
-    </p>
-  </div>
-                 {!showImgEditPanel ? (
-                   <div className="flex gap-4 items-center">
-                    <button onClick={triggerImageGen} disabled={loadingImg} className={`flex-[4] py-5 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl transition-all ${activeAsset ? 'bg-slate-900 text-white hover:bg-black' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
-                       {loadingImg ? <RefreshCw className="w-4 h-4 animate-spin" /> : activeAsset ? <><Edit3 className="w-4 h-4" /> {t.edit_image}</> : <><Sparkles className="w-4 h-4" /> {t.create_image}</>} 
-                    </button>
-                    <button onClick={() => setShowOverlayDesigner(!showOverlayDesigner)} className={`flex-1 h-[60px] rounded-2xl border transition-all flex items-center justify-center group ${showOverlayDesigner ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-indigo-600 text-white shadow-md border-indigo-500'}`} title="Text Architect">
-                      <TypeIcon className={`w-6 h-6 ${showOverlayDesigner ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
-                    </button>
-                   </div>
-                 ) : (
-                   <div className="w-full space-y-4 p-6 bg-slate-900 rounded-[2rem] shadow-2xl animate-in zoom-in duration-200">
-                      <div className="flex justify-between items-center mb-1">
-                        <p className="text-[11px] font-black text-indigo-400 uppercase tracking-widest">{t.logic_correction}</p>
-                        <button onClick={() => { setImgEditFeedback(''); setShowImgEditPanel(false); }} className="text-white/40 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
-                      </div>
-                      <textarea autoFocus value={imgEditFeedback} onChange={e => setImgEditFeedback(e.target.value)} placeholder="e.g. 'Add more sunlight', 'Change character outfit'..." className="w-full p-4 rounded-xl text-sm font-bold bg-white border border-white/10 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-none" />
-                      <div className="flex gap-3">
-                         <button onClick={() => setShowImgEditPanel(false)} disabled={loadingImg} className="flex-1 py-4 bg-white/10 text-white rounded-xl text-[10px] font-black uppercase hover:bg-white/20 disabled:opacity-50 flex items-center justify-center gap-2"><Undo2 className="w-3.5 h-3.5" /> Back</button>
-                         <button onClick={triggerImageGen} disabled={loadingImg} className="flex-[2] py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-indigo-500 shadow-xl flex items-center justify-center gap-2 transition-all disabled:opacity-80">
-                            {loadingImg ? <><RefreshCw className="w-3 h-3 animate-spin" /> {t.processing}</> : t.apply_logic}
-                         </button>
-                      </div>
-                   </div>
-                 )}
-
-                 <div className="flex gap-2 p-3 bg-white border border-slate-100 rounded-2xl overflow-x-auto scrollbar-hide shadow-sm">
-                    <Palette className="w-5 h-5 text-slate-400 shrink-0 self-center mx-2" />
-                    {VISUAL_MODES.map(mode => (
-                      <button key={mode.id} onClick={() => setVisualFilter(mode.id)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase shrink-0 transition-all ${activeVisualMode === mode.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>{mode.name}</button>
-                    ))}
-                 </div>
-           </div>
-
-           {showOverlayDesigner && (
-              <div className="p-8 bg-white border-2 border-indigo-100 rounded-[2.5rem] space-y-8 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
-                 <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <Layers className="w-5 h-5 text-indigo-600" />
-                      <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">{t.text_architect}</span>
-                      <div className="flex items-center gap-2">
-                        {saveStatus === 'saving' && (
-                          <div className="flex items-center gap-2 text-amber-600 animate-pulse">
-                            <RefreshCw className="w-3 h-3 animate-spin" />
-                            <span className="text-[9px] font-black uppercase">Saving...</span>
-                          </div>
-                        )}
-                        {saveStatus === 'saved' && (
-                          <div className="flex items-center gap-2 text-emerald-600 animate-in fade-in duration-300">
-                            <Check className="w-3 h-3" />
-                            <span className="text-[9px] font-black uppercase">Saved</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                       <div className="flex bg-slate-100 p-1 rounded-xl">
-                          <button onClick={() => setGridMode(gridMode === 'thirds' ? 'none' : 'thirds')} className={`flex items-center gap-1.5 text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors ${gridMode === 'thirds' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-indigo-600 bg-white'}`}><Grid3X3 className="w-3.5 h-3.5" /> 1/3</button>
-                          <button onClick={() => setGridMode(gridMode === 'golden' ? 'none' : 'golden')} className={`flex items-center gap-1.5 text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors ${gridMode === 'golden' ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-amber-500 bg-white'}`}><Sun className="w-3.5 h-3.5" /> Phi</button>
-                       </div>
-                       <button onClick={resetVisuals} className="flex items-center gap-1 text-[9px] font-black uppercase text-slate-400 hover:text-indigo-600 transition-colors"><RotateCcw className="w-3 h-3" /> Reset All</button>
-                       <div className="flex bg-slate-100 p-1 rounded-xl">
-                          {currentLayers.map((_, i) => (
-                            <button key={i} onClick={() => setActiveLayerIndex(i)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeLayerIndex === i ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}>{t.layer} {i+1}</button>
-                          ))}
-                       </div>
-                    </div>
-                 </div>
-
-                 <div className="space-y-6">
-                    <textarea 
-                      value={currentLayers[activeLayerIndex]?.text || ''} 
-                      onChange={e => updateLayer(activeLayerIndex, { text: e.target.value })} 
-                      className="w-full p-6 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-inner h-24 resize-none outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900" 
-                      placeholder="Enter text..." 
-                    />
-                    <div className="grid grid-cols-3 gap-2">
-                       {FONTS.map(f => <button key={f.family} onClick={() => updateLayer(activeLayerIndex, { font: f.family })} className={`py-3 rounded-xl text-[9px] font-bold transition-all border ${currentLayers[activeLayerIndex]?.font === f.family ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-100 text-slate-500'}`} style={{ fontFamily: f.family }}>{f.name}</button>)}
-                    </div>
-                    <div className="space-y-4">
-                       <span className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2"><LayoutTemplate className="w-3 h-3" /> Glass Labels</span>
-                       <div className="grid grid-cols-4 gap-2">
-                          {GLASS_OPTIONS.map(style => (
-                            <button key={style.id} onClick={() => updateLayer(activeLayerIndex, { glassStyle: style.id as any })} className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${currentLayers[activeLayerIndex]?.glassStyle === style.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-400 hover:text-indigo-600'}`}>
-                              <style.icon className="w-4 h-4" />
-                              <span className="text-[7px] font-black uppercase">{style.label}</span>
-                            </button>
-                          ))}
-                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-8">
-                       <div className="space-y-4">
-                          <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Sliders className="w-4 h-4 text-indigo-500" /> Stroke & Outline</label>
-                          <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
-                             <input type="range" min="0" max="25" value={currentLayers[activeLayerIndex]?.strokeWidth || 0} onChange={e => updateLayer(activeLayerIndex, { strokeWidth: parseInt(e.target.value) })} className="flex-1 h-1 bg-slate-200 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                             <input type="color" value={currentLayers[activeLayerIndex]?.strokeColor || '#000000'} onChange={e => updateLayer(activeLayerIndex, { strokeColor: e.target.value })} className="w-8 h-8 rounded-lg cursor-pointer border-none p-0" />
-                          </div>
-                       </div>
-                       <div className="space-y-4">
-                          <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Sun className="w-4 h-4 text-amber-500" /> Shadow Depth</label>
-                          <input type="range" min="0" max="100" value={currentLayers[activeLayerIndex]?.shadowBlur || 0} onChange={e => updateLayer(activeLayerIndex, { shadowBlur: parseInt(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-8">
-                       <div className="space-y-4">
-                          <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Maximize className="w-4 h-4 text-indigo-500" /> {t.scale}</label>
-                          <input type="range" min="10" max="100" value={currentLayers[activeLayerIndex]?.size || 25} onChange={e => updateLayer(activeLayerIndex, { size: parseInt(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                       </div>
-                       <div className="space-y-4">
-                          <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Palette className="w-4 h-4 text-rose-500" /> {t.text_color}</label>
-                          <div className="flex flex-wrap gap-2">
-                            {COLORS.map(c => <button key={c.value} onClick={() => updateLayer(activeLayerIndex, { color: c.value })} className={`w-6 h-6 rounded-full border border-slate-200 ${currentLayers[activeLayerIndex]?.color === c.value ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`} style={{ backgroundColor: c.value }} />)}
-                          </div>
-                       </div>
-                    </div>
-                    <div className="flex justify-between items-center bg-slate-900 p-4 rounded-3xl">
-                       <div className="flex gap-2">
-                          <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'left' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'left' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><AlignLeft className="w-4 h-4" /></button>
-                          <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'center' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'center' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><AlignCenter className="w-4 h-4" /></button>
-                          <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'right' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'right' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><AlignRight className="w-4 h-4" /></button>
-                       </div>
-                       <button onClick={() => updateLayer(activeLayerIndex, { pos: { x: 50, y: 50 } })} className="px-6 py-3 bg-white text-slate-900 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all shadow-md flex items-center gap-2"><LayoutGrid className="w-3 h-3" /> Master Center</button>
-                    </div>
-                 </div>
+          <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 space-y-6 shadow-inner">
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{t.visual_architect}</p>
+              <div className="flex items-center gap-3 justify-end">
+                <span className="text-[8px] font-black text-slate-400 uppercase">{t.engine_slot}</span>
+                <div className="flex gap-1.5 bg-slate-200 p-1 rounded-xl">
+                  <button onClick={() => setImageEngine('gemini')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${imageEngine === 'gemini' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>{t.standard}</button>
+                  <button onClick={() => setImageEngine('qwen')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${imageEngine === 'qwen' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>Qwen (Backup)</button>
+                </div>
               </div>
-           )}
+            </div>
 
-           <div className="space-y-6">
-              {activeAsset && (
-                <div className="space-y-6">
-                  <div ref={previewRef} className={`relative ${aspectRatio === '16:9' ? 'aspect-[16/9] max-w-[600px]' : aspectRatio === '1:1' ? 'aspect-square max-w-[400px]' : 'aspect-[9/16] max-w-[340px]'} w-full mx-auto rounded-[3.5rem] overflow-hidden shadow-[0_60px_120px_rgba(0,0,0,0.2)] border-[14px] border-white group bg-slate-100`}>
-                    <div className="absolute inset-0 z-20 pointer-events-none">
-                      {activeSnapLines.y !== null && (
-                        <div className={`absolute left-0 right-0 h-[1px] shadow-[0_0_12px_rgba(99,102,241,0.5)] transition-all ${gridMode === 'golden' ? 'bg-amber-400' : 'bg-indigo-400'}`} style={{ top: `${activeSnapLines.y}%` }} />
-                      )}
-                      {activeSnapLines.x !== null && (
-                        <div className={`absolute top-0 bottom-0 w-[1px] shadow-[0_0_12px_rgba(99,102,241,0.5)] transition-all ${gridMode === 'golden' ? 'bg-amber-400' : 'bg-indigo-400'}`} style={{ left: `${activeSnapLines.x}%` }} />
-                      )}
+            <div className="space-y-4">
+              <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2">
+                <LayoutGrid className="w-4 h-4 text-indigo-500" /> Image Dimensions
+              </label>
+              <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl">
+                <button onClick={() => setAspectRatio('9:16')} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${aspectRatio === '9:16' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-3 h-4 border-2 border-current rounded-sm"></div>
+                    <span className="text-[8px]">Portrait</span>
+                    <span className="text-[7px] opacity-60">9:16</span>
+                  </div>
+                </button>
+                <button onClick={() => setAspectRatio('16:9')} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${aspectRatio === '16:9' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-4 h-3 border-2 border-current rounded-sm"></div>
+                    <span className="text-[8px]">Landscape</span>
+                    <span className="text-[7px] opacity-60">16:9</span>
+                  </div>
+                </button>
+                <button onClick={() => setAspectRatio('1:1')} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${aspectRatio === '1:1' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-200'}`}>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-3 h-3 border-2 border-current rounded-sm"></div>
+                    <span className="text-[8px]">Square</span>
+                    <span className="text-[7px] opacity-60">1:1</span>
+                  </div>
+                </button>
+              </div>
+              <p className="text-[8px] text-slate-400 italic px-2">
+                Portrait: Instagram Stories, Reels | Landscape: YouTube, Blog | Square: Instagram Feed
+              </p>
+            </div>
+            {!showImgEditPanel ? (
+              <div className="flex gap-4 items-center">
+                <button onClick={triggerImageGen} disabled={loadingImg} className={`flex-[4] py-5 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl transition-all ${activeAsset ? 'bg-slate-900 text-white hover:bg-black' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                  {loadingImg ? <RefreshCw className="w-4 h-4 animate-spin" /> : activeAsset ? <><Edit3 className="w-4 h-4" /> {t.edit_image}</> : <><Sparkles className="w-4 h-4" /> {t.create_image}</>}
+                </button>
+                <button onClick={() => setShowOverlayDesigner(!showOverlayDesigner)} className={`flex-1 h-[60px] rounded-2xl border transition-all flex items-center justify-center group ${showOverlayDesigner ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' : 'bg-indigo-600 text-white shadow-md border-indigo-500'}`} title="Text Architect">
+                  <TypeIcon className={`w-6 h-6 ${showOverlayDesigner ? 'scale-110' : 'group-hover:scale-110'} transition-transform`} />
+                </button>
+              </div>
+            ) : (
+              <div className="w-full space-y-4 p-6 bg-slate-900 rounded-[2rem] shadow-2xl animate-in zoom-in duration-200">
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-[11px] font-black text-indigo-400 uppercase tracking-widest">{t.logic_correction}</p>
+                  <button onClick={() => { setImgEditFeedback(''); setShowImgEditPanel(false); }} className="text-white/40 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
+                </div>
+                <textarea autoFocus value={imgEditFeedback} onChange={e => setImgEditFeedback(e.target.value)} placeholder="e.g. 'Add more sunlight', 'Change character outfit'..." className="w-full p-4 rounded-xl text-sm font-bold bg-white border border-white/10 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-none" />
+                <div className="flex gap-3">
+                  <button onClick={() => setShowImgEditPanel(false)} disabled={loadingImg} className="flex-1 py-4 bg-white/10 text-white rounded-xl text-[10px] font-black uppercase hover:bg-white/20 disabled:opacity-50 flex items-center justify-center gap-2"><Undo2 className="w-3.5 h-3.5" /> Back</button>
+                  <button onClick={triggerImageGen} disabled={loadingImg} className="flex-[2] py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-indigo-500 shadow-xl flex items-center justify-center gap-2 transition-all disabled:opacity-80">
+                    {loadingImg ? <><RefreshCw className="w-3 h-3 animate-spin" /> {t.processing}</> : t.apply_logic}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2 p-3 bg-white border border-slate-100 rounded-2xl overflow-x-auto scrollbar-hide shadow-sm">
+              <Palette className="w-5 h-5 text-slate-400 shrink-0 self-center mx-2" />
+              {VISUAL_MODES.map(mode => (
+                <button key={mode.id} onClick={() => setVisualFilter(mode.id)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase shrink-0 transition-all ${activeVisualMode === mode.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>{mode.name}</button>
+              ))}
+            </div>
+          </div>
+
+          {showOverlayDesigner && (
+            <div className="p-8 bg-white border-2 border-indigo-100 rounded-[2.5rem] space-y-8 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <Layers className="w-5 h-5 text-indigo-600" />
+                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">{t.text_architect}</span>
+                  <div className="flex items-center gap-2">
+                    {saveStatus === 'saving' && (
+                      <div className="flex items-center gap-2 text-amber-600 animate-pulse">
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        <span className="text-[9px] font-black uppercase">Saving...</span>
+                      </div>
+                    )}
+                    {saveStatus === 'saved' && (
+                      <div className="flex items-center gap-2 text-emerald-600 animate-in fade-in duration-300">
+                        <Check className="w-3 h-3" />
+                        <span className="text-[9px] font-black uppercase">Saved</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex bg-slate-100 p-1 rounded-xl">
+                    <button onClick={() => setGridMode(gridMode === 'thirds' ? 'none' : 'thirds')} className={`flex items-center gap-1.5 text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors ${gridMode === 'thirds' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-indigo-600 bg-white'}`}><Grid3X3 className="w-3.5 h-3.5" /> 1/3</button>
+                    <button onClick={() => setGridMode(gridMode === 'golden' ? 'none' : 'golden')} className={`flex items-center gap-1.5 text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors ${gridMode === 'golden' ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-amber-500 bg-white'}`}><Sun className="w-3.5 h-3.5" /> Phi</button>
+                  </div>
+                  <button onClick={resetVisuals} className="flex items-center gap-1 text-[9px] font-black uppercase text-slate-400 hover:text-indigo-600 transition-colors"><RotateCcw className="w-3 h-3" /> Reset All</button>
+                  <div className="flex bg-slate-100 p-1 rounded-xl">
+                    {currentLayers.map((_, i) => (
+                      <button key={i} onClick={() => setActiveLayerIndex(i)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeLayerIndex === i ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}>{currentLayers[i].type === 'text' ? 'Text' : 'Img'} {i + 1}</button>
+                    ))}
+                    <button onClick={() => {
+                      const newLayer: OverlaySettings = {
+                        type: 'text', id: `layer-text-${Date.now()}`,
+                        text: 'New Text', font: FONTS[0].family, color: COLORS[0].value, size: 20, isBold: true, pos: { x: 50, y: 50 },
+                        rotation: 0, scale: 1, opacity: 1, glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0
+                      };
+                      const nl = [...currentLayers, newLayer];
+                      saveVisualEdits(nl, activeVisualMode);
+                      setActiveLayerIndex(nl.length - 1);
+                    }} className="px-4 py-2 text-slate-400 hover:text-indigo-600 transition-colors"><Plus className="w-4 h-4" /></button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploadingImage} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-black transition-all shadow-xl">
+                  {uploadingImage ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Add Personal Image
+                </button>
+                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+                <button onClick={() => {
+                  if (currentLayers.length <= 1) return;
+                  const nl = currentLayers.filter((_, i) => i !== activeLayerIndex);
+                  saveVisualEdits(nl, activeVisualMode);
+                  setActiveLayerIndex(Math.max(0, activeLayerIndex - 1));
+                }} className="px-6 py-4 bg-rose-50 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100">
+                  Delete Layer
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <textarea
+                  value={currentLayers[activeLayerIndex]?.text || ''}
+                  onChange={e => updateLayer(activeLayerIndex, { text: e.target.value })}
+                  className="w-full p-6 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-inner h-24 resize-none outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
+                  placeholder="Enter text..."
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  {FONTS.map(f => <button key={f.family} onClick={() => updateLayer(activeLayerIndex, { font: f.family })} className={`py-3 rounded-xl text-[9px] font-bold transition-all border ${currentLayers[activeLayerIndex]?.font === f.family ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-100 text-slate-500'}`} style={{ fontFamily: f.family }}>{f.name}</button>)}
+                </div>
+                <div className="space-y-4">
+                  <span className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2"><LayoutTemplate className="w-3 h-3" /> Glass Labels</span>
+                  <div className="grid grid-cols-4 gap-2">
+                    {GLASS_OPTIONS.map(style => (
+                      <button key={style.id} onClick={() => updateLayer(activeLayerIndex, { glassStyle: style.id as any })} className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${currentLayers[activeLayerIndex]?.glassStyle === style.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-400 hover:text-indigo-600'}`}>
+                        <style.icon className="w-4 h-4" />
+                        <span className="text-[7px] font-black uppercase">{style.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Sliders className="w-4 h-4 text-indigo-500" /> Stroke & Outline</label>
+                    <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
+                      <input type="range" min="0" max="25" value={currentLayers[activeLayerIndex]?.strokeWidth || 0} onChange={e => updateLayer(activeLayerIndex, { strokeWidth: parseInt(e.target.value) })} className="flex-1 h-1 bg-slate-200 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                      <input type="color" value={currentLayers[activeLayerIndex]?.strokeColor || '#000000'} onChange={e => updateLayer(activeLayerIndex, { strokeColor: e.target.value })} className="w-8 h-8 rounded-lg cursor-pointer border-none p-0" />
                     </div>
-                    {activeAsset.type === 'video' ? (
-                      <video key={activeAsset.url} src={activeAsset.url} controls autoPlay loop className={`w-full h-full object-cover ${VISUAL_MODES.find(m => m.id === activeVisualMode)?.class}`} />
-                    ) : (
-                      <div className="relative w-full h-full">
-                        <img key={activeAsset.url} src={activeAsset.rawUrl} className={`w-full h-full object-cover transition-transform duration-[12000ms] ${motionSimulation ? 'scale-150 translate-y-[-10%]' : 'scale-100'} ${VISUAL_MODES.find(m => m.id === activeVisualMode)?.class}`} alt="Asset" />
-                        {currentLayers.map((layer, i) => {
-                          if (!layer) return null;
-                          const fontSize = getProportionalFontSize(layer.size || 25, previewWidth);
-                          return layer.text && (
-                            <div key={i} onMouseDown={(e) => handleDragStart(e, i)} onTouchStart={(e) => handleDragStart(e, i)} 
-                              style={{ left: `${layer.pos.x}%`, top: `${layer.pos.y}%`, transform: 'translate(-50%, -50%)', width: '85%', pointerEvents: showOverlayDesigner ? 'auto' : 'none', zIndex: activeLayerIndex === i ? 40 : 30 }} 
-                              className={`absolute flex flex-col items-center justify-center select-none ${showOverlayDesigner ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+                  </div>
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Sun className="w-4 h-4 text-amber-500" /> Shadow Depth</label>
+                    <input type="range" min="0" max="100" value={currentLayers[activeLayerIndex]?.shadowBlur || 0} onChange={e => updateLayer(activeLayerIndex, { shadowBlur: parseInt(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><RotateCw className="w-4 h-4 text-indigo-500" /> Rotation</label>
+                    <input type="range" min="-180" max="180" value={currentLayers[activeLayerIndex]?.rotation || 0} onChange={e => updateLayer(activeLayerIndex, { rotation: parseInt(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                  </div>
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Maximize className="w-4 h-4 text-amber-500" /> Scale</label>
+                    <input type="range" min="0.1" max="3" step="0.1" value={currentLayers[activeLayerIndex]?.scale || 1} onChange={e => updateLayer(activeLayerIndex, { scale: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Sparkles className="w-4 h-4 text-indigo-500" /> Opacity</label>
+                    <input type="range" min="0" max="1" step="0.05" value={currentLayers[activeLayerIndex]?.opacity ?? 1} onChange={e => updateLayer(activeLayerIndex, { opacity: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                  </div>
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Maximize className="w-4 h-4 text-indigo-500" /> {t.scale} (Layer Size)</label>
+                    <input type="range" min="5" max="100" value={currentLayers[activeLayerIndex]?.size || 25} onChange={e => updateLayer(activeLayerIndex, { size: parseInt(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                  </div>
+                </div>
+
+                {currentLayers[activeLayerIndex]?.type === 'text' && (
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Palette className="w-4 h-4 text-rose-500" /> {t.text_color}</label>
+                    <div className="flex flex-wrap gap-2">
+                      {COLORS.map(c => <button key={c.value} onClick={() => updateLayer(activeLayerIndex, { color: c.value })} className={`w-6 h-6 rounded-full border border-slate-200 ${currentLayers[activeLayerIndex]?.color === c.value ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`} style={{ backgroundColor: c.value }} />)}
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-between items-center bg-slate-900 p-4 rounded-3xl">
+                  <div className="flex gap-2">
+                    <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'left' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'left' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><AlignLeft className="w-4 h-4" /></button>
+                    <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'center' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'center' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><AlignCenter className="w-4 h-4" /></button>
+                    <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'right' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'right' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><AlignRight className="w-4 h-4" /></button>
+                  </div>
+                  <button onClick={() => updateLayer(activeLayerIndex, { pos: { x: 50, y: 50 } })} className="px-6 py-3 bg-white text-slate-900 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all shadow-md flex items-center gap-2"><LayoutGrid className="w-3 h-3" /> Master Center</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-6">
+            {activeAsset && (
+              <div className="space-y-6">
+                <div ref={previewRef} className={`relative ${aspectRatio === '16:9' ? 'aspect-[16/9] max-w-[600px]' : aspectRatio === '1:1' ? 'aspect-square max-w-[400px]' : 'aspect-[9/16] max-w-[340px]'} w-full mx-auto rounded-[3.5rem] overflow-hidden shadow-[0_60px_120px_rgba(0,0,0,0.2)] border-[14px] border-white group bg-slate-100`}>
+                  <div className="absolute inset-0 z-20 pointer-events-none">
+                    {activeSnapLines.y !== null && (
+                      <div className={`absolute left-0 right-0 h-[1px] shadow-[0_0_12px_rgba(99,102,241,0.5)] transition-all ${gridMode === 'golden' ? 'bg-amber-400' : 'bg-indigo-400'}`} style={{ top: `${activeSnapLines.y}%` }} />
+                    )}
+                    {activeSnapLines.x !== null && (
+                      <div className={`absolute top-0 bottom-0 w-[1px] shadow-[0_0_12px_rgba(99,102,241,0.5)] transition-all ${gridMode === 'golden' ? 'bg-amber-400' : 'bg-indigo-400'}`} style={{ left: `${activeSnapLines.x}%` }} />
+                    )}
+                  </div>
+                  {activeAsset.type === 'video' ? (
+                    <video key={activeAsset.url} src={activeAsset.url} controls autoPlay loop className={`w-full h-full object-cover ${VISUAL_MODES.find(m => m.id === activeVisualMode)?.class}`} />
+                  ) : (
+                    <div className="relative w-full h-full">
+                      <img key={activeAsset.url} src={activeAsset.rawUrl} className={`w-full h-full object-cover transition-transform duration-[12000ms] ${motionSimulation ? 'scale-150 translate-y-[-10%]' : 'scale-100'} ${VISUAL_MODES.find(m => m.id === activeVisualMode)?.class}`} alt="Asset" />
+                      {currentLayers.map((layer, i) => {
+                        if (!layer) return null;
+                        const fontSize = getProportionalFontSize(layer.size || 25, previewWidth);
+                        const isSelected = activeLayerIndex === i && showOverlayDesigner;
+
+                        return (
+                          <div key={layer.id || i} onMouseDown={(e) => handleDragStart(e, i)} onTouchStart={(e) => handleDragStart(e, i)}
+                            style={{
+                              left: `${layer.pos.x}%`,
+                              top: `${layer.pos.y}%`,
+                              transform: `translate(-50%, -50%) rotate(${layer.rotation || 0}deg) scale(${layer.scale || 1})`,
+                              width: layer.type === 'text' ? '85%' : `${layer.size || 30}%`,
+                              opacity: layer.opacity ?? 1,
+                              pointerEvents: showOverlayDesigner ? 'auto' : 'none',
+                              zIndex: activeLayerIndex === i ? 40 : 30
+                            }}
+                            className={`absolute flex flex-col items-center justify-center select-none ${showOverlayDesigner ? 'cursor-grab active:cursor-grabbing' : ''} ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-4 rounded-lg' : ''}`}>
+
+                            {layer.type === 'image' ? (
+                              <img src={layer.imageUrl} className={`w-full h-full object-contain ${layer.hasShadow ? 'drop-shadow-2xl' : ''}`} alt="Layer" />
+                            ) : (
                               <div className="relative w-full flex flex-col items-center">
                                 {(layer.text || '').split('\n').map((line, lineIdx) => {
                                   if (!line || !line.trim()) return null;
                                   const glassClass = GLASS_OPTIONS.find(g => g.id === layer.glassStyle)?.class || '';
                                   return (
                                     <div key={lineIdx} className={`${glassClass} px-3 py-1 my-[0.1em] transition-all rounded-sm flex items-center justify-center`}>
-                                      <h2 style={{ 
-                                        color: layer.color || '#FFFFFF', 
-                                        fontSize: `${fontSize}px`, 
-                                        fontWeight: layer.isBold ? 900 : 500, 
-                                        fontFamily: `'${layer.font || 'Anton'}', sans-serif`, 
-                                        textShadow: layer.hasShadow ? `0 4px ${(layer.shadowBlur || 15)/4}px rgba(0,0,0,0.9)` : 'none',
+                                      <h2 style={{
+                                        color: layer.color || '#FFFFFF',
+                                        fontSize: `${fontSize}px`,
+                                        fontWeight: layer.isBold ? 900 : 500,
+                                        fontFamily: `'${layer.font || 'Anton'}', sans-serif`,
+                                        textShadow: layer.hasShadow ? `0 4px ${(layer.shadowBlur || 15) / 4}px rgba(0,0,0,0.9)` : 'none',
                                         textAlign: layer.textAlign || 'center',
-                                        WebkitTextStroke: (layer.strokeWidth || 0) > 0 ? `${((layer.strokeWidth || 0)/100) * fontSize}px ${layer.strokeColor || '#000000'}` : 'none'
+                                        WebkitTextStroke: (layer.strokeWidth || 0) > 0 ? `${((layer.strokeWidth || 0) / 100) * fontSize}px ${layer.strokeColor || '#000000'}` : 'none'
                                       }} className="uppercase tracking-tight whitespace-nowrap leading-[1.1]">
                                         {line.trim()}
                                       </h2>
@@ -824,47 +919,48 @@ const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existin
                                   );
                                 })}
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <div className="absolute bottom-10 right-10 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={handleDownload} title="Download version" className="p-3.5 bg-white/95 backdrop-blur-xl rounded-[1.2rem] shadow-2xl hover:scale-110 active:scale-95 transition-transform"><Download className="w-5 h-5 text-slate-900" /></button>
-                    </div>
-                    <div className="absolute bottom-10 left-10 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={handleDelete} title="Delete version" className="p-3.5 bg-rose-500/95 backdrop-blur-xl rounded-[1.2rem] shadow-2xl hover:scale-110 active:scale-95 transition-transform"><Trash2 className="w-5 h-5 text-white" /></button>
-                    </div>
-                    <div className="absolute top-8 left-8 flex items-center gap-2">
-                       <span className="bg-slate-900/80 backdrop-blur-xl text-white text-[9px] font-black px-5 py-2.5 rounded-full uppercase tracking-widest border border-white/10 shadow-xl">{activeAsset.label}</span>
-                       <button onClick={() => setMotionSimulation(!motionSimulation)} title="Motion Simulation" className={`p-2.5 rounded-full backdrop-blur-xl border border-white/10 shadow-xl transition-all ${motionSimulation ? 'bg-indigo-600 text-white rotate-12' : 'bg-white/30 text-white'}`}><Zap className="w-3.5 h-3.5" /></button>
-                    </div>
-                  </div>
-                  <div className="flex gap-4 p-4 bg-white rounded-[2.5rem] border border-slate-100 overflow-x-auto scrollbar-hide shadow-sm items-center">
-                     {galleryAssets.map((asset, idx) => (
-                       <button key={idx} onClick={() => setAssetIndex(idx)} className={`shrink-0 w-24 h-40 rounded-3xl overflow-hidden border-4 transition-all relative ${assetIndex === idx ? 'border-indigo-600 scale-105 shadow-2xl ring-4 ring-indigo-50' : 'border-slate-50 opacity-40 hover:opacity-100 hover:scale-105'}`}>
-                          {asset.type === 'video' ? <div className="w-full h-full bg-slate-900 flex items-center justify-center"><Film className="w-10 h-10 text-white" /></div> : <img src={asset.url} className="w-full h-full object-cover" />}
-                          <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 backdrop-blur rounded-lg text-[8px] font-black text-white uppercase">V{idx+1}</div>
-                       </button>
-                     ))}
-                  </div>
-                  {day.requires_video && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                      <div className="flex items-center justify-between px-8 bg-slate-50 py-4 rounded-[2rem] border border-slate-100">
-                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.engine_slot}</span>
-                         <div className="flex gap-2 bg-slate-200 p-1.5 rounded-2xl">
-                            <button onClick={() => setVideoEngine('gemini')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${videoEngine === 'gemini' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>{t.fast}</button>
-                            <button onClick={() => setVideoEngine('qwen')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${videoEngine === 'qwen' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>Qwen (Backup)</button>
-                         </div>
-                      </div>
-                      <button onClick={handleAnimateVideo} disabled={loadingVid || currentDayVideos.length >= 3 || currentDayImages.length === 0} className={`w-full py-8 rounded-[3rem] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-5 transition-all shadow-2xl ${loadingVid ? 'bg-slate-200 cursor-wait text-slate-500' : 'bg-slate-900 text-white hover:bg-black hover:scale-[1.02] group active:scale-95'}`}>
-                        {loadingVid ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Film className="w-6 h-6 group-hover:scale-110 transition-transform" />} {loadingVid ? t.processing : t.render_video}
-                      </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
+                  <div className="absolute bottom-10 right-10 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={handleDownload} title="Download version" className="p-3.5 bg-white/95 backdrop-blur-xl rounded-[1.2rem] shadow-2xl hover:scale-110 active:scale-95 transition-transform"><Download className="w-5 h-5 text-slate-900" /></button>
+                  </div>
+                  <div className="absolute bottom-10 left-10 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={handleDelete} title="Delete version" className="p-3.5 bg-rose-500/95 backdrop-blur-xl rounded-[1.2rem] shadow-2xl hover:scale-110 active:scale-95 transition-transform"><Trash2 className="w-5 h-5 text-white" /></button>
+                  </div>
+                  <div className="absolute top-8 left-8 flex items-center gap-2">
+                    <span className="bg-slate-900/80 backdrop-blur-xl text-white text-[9px] font-black px-5 py-2.5 rounded-full uppercase tracking-widest border border-white/10 shadow-xl">{activeAsset.label}</span>
+                    <button onClick={() => setMotionSimulation(!motionSimulation)} title="Motion Simulation" className={`p-2.5 rounded-full backdrop-blur-xl border border-white/10 shadow-xl transition-all ${motionSimulation ? 'bg-indigo-600 text-white rotate-12' : 'bg-white/30 text-white'}`}><Zap className="w-3.5 h-3.5" /></button>
+                  </div>
                 </div>
-              )}
-           </div>
+                <div className="flex gap-4 p-4 bg-white rounded-[2.5rem] border border-slate-100 overflow-x-auto scrollbar-hide shadow-sm items-center">
+                  {galleryAssets.map((asset, idx) => (
+                    <button key={idx} onClick={() => setAssetIndex(idx)} className={`shrink-0 w-24 h-40 rounded-3xl overflow-hidden border-4 transition-all relative ${assetIndex === idx ? 'border-indigo-600 scale-105 shadow-2xl ring-4 ring-indigo-50' : 'border-slate-50 opacity-40 hover:opacity-100 hover:scale-105'}`}>
+                      {asset.type === 'video' ? <div className="w-full h-full bg-slate-900 flex items-center justify-center"><Film className="w-10 h-10 text-white" /></div> : <img src={asset.url} className="w-full h-full object-cover" />}
+                      <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 backdrop-blur rounded-lg text-[8px] font-black text-white uppercase">V{idx + 1}</div>
+                    </button>
+                  ))}
+                </div>
+                {day.requires_video && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="flex items-center justify-between px-8 bg-slate-50 py-4 rounded-[2rem] border border-slate-100">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.engine_slot}</span>
+                      <div className="flex gap-2 bg-slate-200 p-1.5 rounded-2xl">
+                        <button onClick={() => setVideoEngine('gemini')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${videoEngine === 'gemini' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>{t.fast}</button>
+                        <button onClick={() => setVideoEngine('qwen')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${videoEngine === 'qwen' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>Qwen (Backup)</button>
+                      </div>
+                    </div>
+                    <button onClick={handleAnimateVideo} disabled={loadingVid || currentDayVideos.length >= 3 || currentDayImages.length === 0} className={`w-full py-8 rounded-[3rem] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-5 transition-all shadow-2xl ${loadingVid ? 'bg-slate-200 cursor-wait text-slate-500' : 'bg-slate-900 text-white hover:bg-black hover:scale-[1.02] group active:scale-95'}`}>
+                      {loadingVid ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Film className="w-6 h-6 group-hover:scale-110 transition-transform" />} {loadingVid ? t.processing : t.render_video}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
