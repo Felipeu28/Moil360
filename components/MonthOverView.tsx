@@ -15,13 +15,14 @@ import {
 interface Props {
     strategy: StrategyResult;
     lang: Language;
-    onKickoff: () => void;
+    onKickoff: (guidance?: string) => void;
     onClose: () => void;
     assetSummary: { images: number; videos: number };
 }
 
 export const MonthOverView: React.FC<Props> = ({ strategy, lang, onKickoff, onClose, assetSummary }) => {
     const t = translations[lang] || translations['EN'];
+    const [guidance, setGuidance] = React.useState('');
 
     const metrics = [
         { label: 'Intelligence Depth', value: `${strategy.quality_score}%`, icon: TrendingUp, color: 'text-emerald-400' },
@@ -65,19 +66,24 @@ export const MonthOverView: React.FC<Props> = ({ strategy, lang, onKickoff, onCl
                     ))}
                 </div>
 
-                <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-white/5 relative group">
-                    <div className="flex items-center gap-4 mb-4">
-                        <Award className="w-5 h-5 text-indigo-400" />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Growth Summary</span>
+                <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-white/5 relative group space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Sparkles className="w-5 h-5 text-amber-400" />
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.monthly_guidance}</span>
+                        </div>
                     </div>
-                    <p className="text-sm font-medium text-slate-300 italic leading-relaxed opacity-80">
-                        "{strategy.summary || 'Strategic cycle concluded successfully.'}"
-                    </p>
+                    <textarea
+                        value={guidance}
+                        onChange={(e) => setGuidance(e.target.value)}
+                        placeholder={t.monthly_guidance_placeholder}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-sm font-medium text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all min-h-[120px] resize-none"
+                    />
                 </div>
 
                 <div className="flex flex-col md:flex-row items-center gap-6 mt-4">
                     <button
-                        onClick={onKickoff}
+                        onClick={() => onKickoff(guidance)}
                         className="flex-1 w-full bg-white text-slate-950 px-10 py-6 rounded-3xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-4 shadow-2xl transition-all hover:scale-[1.02] active:scale-95 group"
                     >
                         <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
