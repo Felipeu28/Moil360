@@ -44,6 +44,29 @@ const CAPTION_LENGTH_GUIDELINES = {
   }
 };
 
+const DAY_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    day: { type: Type.INTEGER },
+    date: { type: Type.STRING },
+    topic: { type: Type.STRING },
+    hook: { type: Type.STRING },
+    full_caption: { type: Type.STRING },
+    cta: { type: Type.STRING },
+    hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
+    image_prompts: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "CRITICAL: Each prompt MUST be a direct, literal, photographic representation of the day's SPECIFIC topic. The image should instantly communicate the exact subject matter discussed in the post. Example: If topic is 'The $200/Hour Technician', show a professional service technician in branded uniform holding diagnostic tablet with visible pricing. If topic is 'Bilingual Revenue Multiplier', show a Hispanic technician speaking with homeowner with 'Se Habla Español' visible on truck. NO abstract concepts, NO generic stock photos, NO metaphors. The viewer should know the post topic just by seeing the image."
+    },
+    content_type: { type: Type.STRING },
+    platform_strategy: { type: Type.STRING },
+    best_time: { type: Type.STRING },
+    requires_video: { type: Type.BOOLEAN },
+  },
+  required: ["day", "date", "topic", "hook", "full_caption", "cta", "hashtags", "image_prompts", "content_type", "platform_strategy", "best_time", "requires_video"],
+};
+
 const CONTENT_SCHEMA = {
   type: Type.OBJECT,
   properties: {
@@ -60,31 +83,21 @@ const CONTENT_SCHEMA = {
     },
     calendar: {
       type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          day: { type: Type.INTEGER },
-          date: { type: Type.STRING },
-          topic: { type: Type.STRING },
-          hook: { type: Type.STRING },
-          full_caption: { type: Type.STRING },
-          cta: { type: Type.STRING },
-          hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
-          image_prompts: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-            description: "CRITICAL: Each prompt MUST be a direct, literal, photographic representation of the day's SPECIFIC topic. The image should instantly communicate the exact subject matter discussed in the post. Example: If topic is 'The $200/Hour Technician', show a professional service technician in branded uniform holding diagnostic tablet with visible pricing. If topic is 'Bilingual Revenue Multiplier', show a Hispanic technician speaking with homeowner with 'Se Habla Español' visible on truck. NO abstract concepts, NO generic stock photos, NO metaphors. The viewer should know the post topic just by seeing the image."
-          },
-          content_type: { type: Type.STRING },
-          platform_strategy: { type: Type.STRING },
-          best_time: { type: Type.STRING },
-          requires_video: { type: Type.BOOLEAN },
-        },
-        required: ["day", "date", "topic", "hook", "full_caption", "cta", "hashtags", "image_prompts", "content_type", "platform_strategy", "best_time", "requires_video"],
-      },
+      items: DAY_SCHEMA,
     },
   },
   required: ["calendar", "summary", "quality_score", "context"],
+};
+
+const BATCH_CALENDAR_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    calendar: {
+      type: Type.ARRAY,
+      items: DAY_SCHEMA,
+    },
+  },
+  required: ["calendar"],
 };
 
 const JUAN_STYLE_PROMPT = `
@@ -341,79 +354,101 @@ ${type}:
 - Structure: ${guide.structure}
     `).join('\n');
 
-  const response: GenerateContentResponse = await retryableCall(() => {
-    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
-    return ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: `
-        BUSINESS CONTEXT: ${JSON.stringify(business)}
-        ${brandContext}
-        MARKET RESEARCH DATA: ${researchText}
-        STRATEGIC EVOLUTION: ${evolutionContext}
+  // ============================================================================
+  // BATCHED GENERATION: 3-STAGE LOOP (30 DAYS TOTAL)
+  // ============================================================================
+  console.log("🚀 Starting Batched Strategy Generation...");
+  const fullCalendar: ContentDay[] = [];
+  let strategySummary = "";
+  let qualityScore = 0;
+  let strategyContext: any = null;
 
-        TASK: Generate a 30-day "Juan-Style" Content Strategy that EVOLVES the brand.
-        
-        ============================================================================
-        📊 RECURSIVE GROWTH ENGINE: CAMPAIGN EVOLUTION
-        ============================================================================
-        1. STRATEGIC CONTINUITY: If previous month was "Foundation", this month is "Social Proof & Scaling".
-        2. DYNAMIC TRENDS: Incorporate the NEW research findings found in the GROUNDING data.
-        3. NO REPETITION: Ensure hooks and topics move forward in the customer journey.
-        
-        ============================================================================
-        📊 WEEK 1 ENHANCEMENT: CAPTION VARIETY REQUIREMENTS
-        ============================================================================
-        
-        CRITICAL: Each content_type MUST have distinct caption length and style:
-        
-        ${captionGuidelines}
-        
-        ENFORCEMENT RULES:
-        1. COUNT YOUR WORDS - Educational posts MUST be 250-400 words, Promotional MUST be 100-200 words
-        2. VARY THE LENGTH - No two consecutive posts should have similar word counts
-        3. MATCH THE STRUCTURE - Follow the specified structure for each type
-        4. MAINTAIN JUAN-STYLE - Aggressive white space applies to ALL types
-        
-        ============================================================================
-        🎬 WEEK 1 ENHANCEMENT: VIDEO DAY REQUIREMENTS
-        ============================================================================
-        
-        CRITICAL VIDEO DISTRIBUTION RULES:
-        1. MINIMUM 5 DAYS must have requires_video: true (out of 30 days)
-        2. spread these out strategically.
-        
-        ${JUAN_STYLE_PROMPT}
-      `,
-      config: {
-        systemInstruction: "Lead Content Architect & Strategic Growth Specialist. Analyze previous month history to ensure brand EVOLUTION. Focus on upcoming month trends and enforce caption variety and aggressive white space.",
-        responseMimeType: "application/json",
-        responseSchema: CONTENT_SCHEMA,
-      },
+  for (let batch = 1; batch <= 3; batch++) {
+    const startDay = (batch - 1) * 10 + 1;
+    const endDay = batch * 10;
+    console.log(`📦 Generating Batch ${batch} (Days ${startDay}-${endDay})...`);
+
+    const batchResponse: GenerateContentResponse = await retryableCall(() => {
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
+      return ai.models.generateContent({
+        model: "gemini-3-pro-preview",
+        contents: `
+          BUSINESS CONTEXT: ${JSON.stringify(business)}
+          ${brandContext}
+          MARKET RESEARCH DATA: ${researchText}
+          STRATEGIC EVOLUTION: ${evolutionContext}
+
+          TASK: Generate DAYS ${startDay} to ${endDay} of a 30-day "Juan-Style" Content Strategy.
+          
+          ============================================================================
+          📊 BATCH GENERATION: STAGE ${batch} OF 3
+          ============================================================================
+          - Generate exactly 10 days (Days ${startDay} through ${endDay}).
+          ${batch === 1 ? "- Also generate the 'summary', 'quality_score', and 'context' for the whole 30-day strategy." : "- Do NOT generate the summary/score/context, ONLY the 'calendar' array for these 10 days."}
+          
+          ============================================================================
+          📊 WEEK 1 ENHANCEMENT: CAPTION VARIETY REQUIREMENTS
+          ============================================================================
+          ${captionGuidelines}
+          
+          ENFORCEMENT RULES:
+          1. COUNT YOUR WORDS - Educational posts MUST be 250-400 words, Promotional MUST be 100-200 words
+          2. VARY THE LENGTH - No two consecutive posts should have similar word counts
+          3. MATCH THE STRUCTURE - Follow the specified structure for each type
+          4. MAINTAIN JUAN-STYLE - Aggressive white space applies to ALL types
+          
+          ${batch > 1 ? `PREVIOUS DAYS CONTEXT: We have already generated Days 1 to ${startDay - 1}. Ensure Days ${startDay}-${endDay} continue the narrative flow logically.` : ""}
+          
+          ${JUAN_STYLE_PROMPT}
+        `,
+        config: {
+          systemInstruction: `Lead Content Architect & Strategic Growth Specialist. Stage ${batch}/3 of generation. Enforce caption variety and aggressive white space. Focus on Days ${startDay}-${endDay}.`,
+          responseMimeType: "application/json",
+          responseSchema: batch === 1 ? CONTENT_SCHEMA : BATCH_CALENDAR_SCHEMA,
+        },
+      });
     });
-  });
 
-  if (!response?.text) throw new Error("Vanguard Engine returned an empty response.");
+    if (!batchResponse?.text) throw new Error(`Vanguard Engine Batch ${batch} returned empty.`);
+    const batchJson = extractJson(batchResponse.text);
 
-  const json = extractJson(response.text);
+    if (batch === 1) {
+      strategySummary = batchJson.summary;
+      qualityScore = batchJson.quality_score;
+      strategyContext = batchJson.context;
+    }
+
+    if (batchJson.calendar && Array.isArray(batchJson.calendar)) {
+      fullCalendar.push(...batchJson.calendar);
+    }
+  }
+
   const nextMonthDate = new Date(baseDate);
   nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
   const endDate = new Date(nextMonthDate);
   endDate.setDate(endDate.getDate() + 30);
 
+  // ✅ VALIDATE: Ensure we have all 30 days
+  if (fullCalendar.length < 30) {
+    console.warn(`⚠️ Strategy truncated to ${fullCalendar.length} days. Filling gaps...`);
+  }
+
   // ✅ WEEK 1: Validate and fix video distribution
-  const validatedCalendar = validateVideoDistribution(json.calendar);
+  const validatedCalendar = validateVideoDistribution(fullCalendar);
 
   return {
-    ...json,
+    monthId: new Date(nextMonthDate).toISOString().slice(0, 7),
+    summary: strategySummary,
+    quality_score: qualityScore,
     calendar: validatedCalendar,
     insights,
     context: {
       today: nextMonthDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
       quarter: Math.ceil((nextMonthDate.getMonth() + 1) / 3),
-      seasonalFocus: json.context?.seasonalFocus || "Recursive Expansion",
-      urgencyAngle: json.context?.urgencyAngle || "Growth Opportunity",
-      industryTrends: json.context?.industryTrends || []
+      seasonalFocus: strategyContext?.seasonalFocus || "Recursive Expansion",
+      urgencyAngle: strategyContext?.urgencyAngle || "Growth Opportunity",
+      industryTrends: strategyContext?.industryTrends || []
     }
   };
 }
