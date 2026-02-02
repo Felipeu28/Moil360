@@ -70,10 +70,10 @@ const CONTENT_SCHEMA = {
           full_caption: { type: Type.STRING },
           cta: { type: Type.STRING },
           hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
-          image_prompts: { 
-            type: Type.ARRAY, 
+          image_prompts: {
+            type: Type.ARRAY,
             items: { type: Type.STRING },
-            description: "CRITICAL: Each prompt MUST be a direct, literal, photographic representation of the day's SPECIFIC topic. The image should instantly communicate the exact subject matter discussed in the post. Example: If topic is 'The $200/Hour Technician', show a professional service technician in branded uniform holding diagnostic tablet with visible pricing. If topic is 'Bilingual Revenue Multiplier', show a Hispanic technician speaking with homeowner with 'Se Habla Español' visible on truck. NO abstract concepts, NO generic stock photos, NO metaphors. The viewer should know the post topic just by seeing the image." 
+            description: "CRITICAL: Each prompt MUST be a direct, literal, photographic representation of the day's SPECIFIC topic. The image should instantly communicate the exact subject matter discussed in the post. Example: If topic is 'The $200/Hour Technician', show a professional service technician in branded uniform holding diagnostic tablet with visible pricing. If topic is 'Bilingual Revenue Multiplier', show a Hispanic technician speaking with homeowner with 'Se Habla Español' visible on truck. NO abstract concepts, NO generic stock photos, NO metaphors. The viewer should know the post topic just by seeing the image."
           },
           content_type: { type: Type.STRING },
           platform_strategy: { type: Type.STRING },
@@ -116,14 +116,14 @@ export async function vanguardFetch(url: string, options: RequestInit = {}, maxR
     } catch (err: any) {
       lastError = err;
       const isNetworkError = err instanceof TypeError || err.message?.toLowerCase().includes('fetch');
-      
+
       if (isNetworkError && i < maxRetries - 1) {
         const delay = Math.pow(2, i) * 1000;
         console.warn(`Vanguard: Network interruption. Retrying in ${delay}ms... (Attempt ${i + 1}/${maxRetries})`);
         await new Promise(r => setTimeout(r, delay));
         continue;
       }
-      
+
       if (isNetworkError) {
         throw new Error("NETWORK_LINK_FAILURE: The intelligence node is unreachable. Ensure the URL is correct and your internet is stable.");
       }
@@ -153,7 +153,7 @@ async function retryableCall<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T
     } catch (err: any) {
       lastError = err;
       const msg = err.message || String(err);
-      
+
       if (msg.includes("Requested entity was not found") || msg.includes("VANGUARD_API_KEY_EXPIRED")) {
         console.warn("Project mismatch detected. Resetting key selection.");
         if (typeof window !== 'undefined' && (window as any).aistudio) {
@@ -201,11 +201,11 @@ export async function fetchRemoteStrategy(url: string): Promise<StrategyResult> 
 // ============================================================================
 function validateVideoDistribution(calendar: ContentDay[]): ContentDay[] {
   const videoDays = calendar.filter(day => day.requires_video);
-  
+
   // ✅ VALIDATION: Ensure minimum 5 video days
   if (videoDays.length < 5) {
     console.warn(`⚠️ Only ${videoDays.length} video days detected. Adding more...`);
-    
+
     // Strategy: Add video to high-impact days that don't have it
     // Priority order: Promotional > Engagement > Educational
     const candidateDays = calendar
@@ -213,21 +213,21 @@ function validateVideoDistribution(calendar: ContentDay[]): ContentDay[] {
       .filter(day => ['Promotional', 'Engagement', 'Educational'].includes(day.content_type))
       .sort((a, b) => {
         const priority = { 'Promotional': 3, 'Engagement': 2, 'Educational': 1 };
-        return (priority[b.content_type as keyof typeof priority] || 0) - 
-               (priority[a.content_type as keyof typeof priority] || 0);
+        return (priority[b.content_type as keyof typeof priority] || 0) -
+          (priority[a.content_type as keyof typeof priority] || 0);
       });
-    
+
     const needed = 5 - videoDays.length;
     for (let i = 0; i < Math.min(needed, candidateDays.length); i++) {
       candidateDays[i].requires_video = true;
     }
   }
-  
+
   // ✅ BALANCE: Ensure video days are distributed (not all clustered)
   // Check for clustering (more than 3 consecutive video days)
   let consecutiveCount = 0;
   let lastVideoDay = -5;
-  
+
   for (const day of calendar) {
     if (day.requires_video) {
       if (day.day - lastVideoDay === 1) {
@@ -235,10 +235,10 @@ function validateVideoDistribution(calendar: ContentDay[]): ContentDay[] {
         if (consecutiveCount > 2) {
           // Too many consecutive - move one to a gap
           day.requires_video = false;
-          
+
           // Find a day without video that's at least 5 days away
-          const targetDay = calendar.find(d => 
-            !d.requires_video && 
+          const targetDay = calendar.find(d =>
+            !d.requires_video &&
             Math.abs(d.day - day.day) > 4 &&
             ['Promotional', 'Engagement'].includes(d.content_type)
           );
@@ -252,17 +252,31 @@ function validateVideoDistribution(calendar: ContentDay[]): ContentDay[] {
       lastVideoDay = day.day;
     }
   }
-  
+
   console.log(`✅ Video distribution validated: ${calendar.filter(d => d.requires_video).length} video days`);
   return calendar;
 }
 
-export async function generateContentStrategy(business: BusinessInfo): Promise<StrategyResult> {
+export async function generateContentStrategy(business: BusinessInfo, previousStrategy?: StrategyResult): Promise<StrategyResult> {
   const baseDate = business.startDate || new Date().toISOString().split('T')[0];
   const year = new Date(baseDate).getFullYear();
   const brandContext = business.brandDNA ? `BRAND IDENTITY: Colors ${business.brandDNA.primaryColor}, Tone: ${business.brandDNA.toneVoice}. Negative Keywords: ${business.brandDNA.negativeKeywords.join(', ')}.` : "";
-  
-  // Enhanced research with multiple targeted queries
+
+  // RECURSIVE GROWTH ENGINE: Analyze previous month if available
+  const evolutionContext = previousStrategy ? `
+    EVOLUTIONARY CONTEXT (Recursive Growth Engine):
+    Previous Month Summary: ${previousStrategy.summary}
+    Previous Quality Score: ${previousStrategy.quality_score}%
+    Previous Trends Leveraged: ${previousStrategy.context?.industryTrends?.join(', ')}
+    
+    STRATEGIC MANDATE:
+    1. Do NOT repeat the same angles or hooks.
+    2. BUILD on the momentum of the previous month.
+    3. If the previous month was "Foundational", this month should be "Expansion" or "Authority".
+    4. Reference the natural progression of a brand's story.
+  ` : "INITIAL SETUP: This is the first month of the campaign. Focus on brand foundation and initial market alignment.";
+
+  // Enhanced research with multiple targeted queries, adjusted for upcoming month
   const research: GenerateContentResponse = await retryableCall(() => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     return ai.models.generateContent({
@@ -272,44 +286,34 @@ export async function generateContentStrategy(business: BusinessInfo): Promise<S
         
         Industry: ${business.industry}
         Target Audience: ${business.targetAudience}
-        Date Context: ${baseDate}
+        Planning Date: ${baseDate}
+        Target Month for Strategy: ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long', year: 'numeric' })}
         Business: ${business.name}
         Core Values: ${business.coreValues}
         Main Goals: ${business.mainGoals}
         
+        ${evolutionContext}
+
         RESEARCH OBJECTIVES:
         1. Find 8-10 HIGH-QUALITY sources from authoritative sites
-        2. Prioritize: Industry publications, recent news (last 30 days), data reports, case studies
-        3. Identify emerging trends, competitive landscape, audience pain points
-        4. Gather statistics, expert insights, and success stories
-        5. Include both macro industry trends and micro opportunities specific to ${business.targetAudience}
+        2. Prioritize: Industry publications, upcoming trends for next month, seasonal triggers
+        3. Identify emerging opportunities that weren't present 30 days ago
+        4. Focus on ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long' })} specific events or consumer behaviors
         
         MULTI-ANGLE SEARCH STRATEGY (execute all):
-        - "${business.industry} trends ${year}"
-        - "${business.targetAudience} pain points ${business.industry}"
-        - "${business.industry} statistics and market data ${year}"
-        - "${business.industry} case studies success stories"
-        - "emerging opportunities ${business.industry}"
-        - "${business.industry} news last 30 days"
-        - "${business.targetAudience} preferences ${business.industry}"
-        - "${business.industry} best practices ${year}"
+        - "${business.industry} trends ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long', year: 'numeric' })}"
+        - "${business.targetAudience} seasonal pain points ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long' })}"
+        - "${business.industry} innovations and news last 2 weeks"
+        - "marketing opportunities for ${business.industry} in ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long' })}"
         
         QUALITY CRITERIA:
-        - Published within last 90 days strongly preferred
-        - From reputable sources: industry journals, major news outlets, research firms, trade publications
-        - Contains actionable data, statistics, and insights
-        - Directly relevant to ${business.targetAudience}
-        - Diverse perspectives (avoid single-source bias)
+        - Published within last 14-30 days strongly preferred
+        - From reputable sources: industry journals, research firms
         
         DELIVERABLE:
-        Provide a comprehensive market intelligence report synthesizing ALL findings with:
-        - Current state of ${business.industry}
-        - Key trends affecting ${business.targetAudience}
-        - Data-backed opportunities
-        - Competitive insights
-        - Content strategy recommendations
+        Provide a comprehensive market intelligence report for the UPCOMING month.
       `,
-      config: { 
+      config: {
         tools: [{ googleSearch: {} }],
         temperature: 0.7
       },
@@ -324,7 +328,7 @@ export async function generateContentStrategy(business: BusinessInfo): Promise<S
     });
   }
 
-  const researchText = research.text || "Market synthesis grounded in real-time trends.";
+  const researchText = research.text || "Market synthesis grounded in real-time trends for the upcoming period.";
 
   // ============================================================================
   // WEEK 1 ENHANCEMENT: Caption Variety Instructions
@@ -345,7 +349,16 @@ ${type}:
         BUSINESS CONTEXT: ${JSON.stringify(business)}
         ${brandContext}
         MARKET RESEARCH DATA: ${researchText}
-        TASK: Generate a 30-day "Juan-Style" Content Strategy.
+        STRATEGIC EVOLUTION: ${evolutionContext}
+
+        TASK: Generate a 30-day "Juan-Style" Content Strategy that EVOLVES the brand.
+        
+        ============================================================================
+        📊 RECURSIVE GROWTH ENGINE: CAMPAIGN EVOLUTION
+        ============================================================================
+        1. STRATEGIC CONTINUITY: If previous month was "Foundation", this month is "Social Proof & Scaling".
+        2. DYNAMIC TRENDS: Incorporate the NEW research findings found in the GROUNDING data.
+        3. NO REPETITION: Ensure hooks and topics move forward in the customer journey.
         
         ============================================================================
         📊 WEEK 1 ENHANCEMENT: CAPTION VARIETY REQUIREMENTS
@@ -361,62 +374,18 @@ ${type}:
         3. MATCH THE STRUCTURE - Follow the specified structure for each type
         4. MAINTAIN JUAN-STYLE - Aggressive white space applies to ALL types
         
-        Example Educational Caption (300+ words):
-        "Here's the truth nobody talks about.
-        
-        Your technicians are driving around with $5,000 in unauthorized parts.
-        
-        That's not an exaggeration.
-        
-        [Continue with detailed explanation, data, examples...]
-        
-        Example Promotional Caption (150 words):
-        "Stop losing $500/week to bad inventory.
-        
-        Visual AI counts your truck stock in 5 seconds.
-        
-        Book a demo: [link]"
-        
         ============================================================================
         🎬 WEEK 1 ENHANCEMENT: VIDEO DAY REQUIREMENTS
         ============================================================================
         
         CRITICAL VIDEO DISTRIBUTION RULES:
         1. MINIMUM 5 DAYS must have requires_video: true (out of 30 days)
-        2. STRATEGIC PLACEMENT: Prioritize these content types for video:
-           - Promotional (highest priority - visual demos convert)
-           - Engagement (second priority - human connection)
-           - Behind the Scenes (third priority - authenticity)
-        3. DISTRIBUTION: Spread video days throughout the month (avoid clustering)
-        4. PLATFORM ALIGNMENT: Video days should mention "Reels" or "Stories" in platform_strategy
-        
-        VIDEO DAY SELECTION CRITERIA:
-        - High-impact topics that benefit from motion (before/after, process, transformation)
-        - Emotional moments (testimonials, celebrations, struggles)
-        - Complex concepts made simple through visual demonstration
-        - Audience engagement triggers (challenges, reveals, behind-the-scenes)
-        
-        ============================================================================
-        
-        BRAND INTEGRATION:
-        - Company: ${business.name}
-        - Industry: ${business.industry}
-        - Brand Colors: Primary ${business.brandDNA?.primaryColor || '#6366F1'}, Secondary ${business.brandDNA?.secondaryColor || '#FACC15'}
-        - Brand Tone: ${business.brandDNA?.toneVoice || 'Professional and trustworthy'}
-        - Target Audience: ${business.targetAudience}
-        - Avoid: ${business.brandDNA?.negativeKeywords?.join(', ') || 'Generic stock photos, clichés'}
-        
-        VISUAL REQUIREMENTS FOR EACH IMAGE PROMPT:
-        1. LITERAL TOPIC REPRESENTATION: Show EXACTLY what the post discusses (no abstracts/metaphors)
-        2. AUDIENCE ALIGNMENT: Visual must resonate with ${business.targetAudience}
-        3. BRAND CONSISTENCY: Subtly incorporate brand colors
-        4. INDUSTRY CONTEXT: Include ${business.industry}-specific elements
-        5. EMOTIONAL TONE: Match ${business.brandDNA?.toneVoice || 'professional'} energy
+        2. spread these out strategically.
         
         ${JUAN_STYLE_PROMPT}
       `,
       config: {
-        systemInstruction: "Lead Content Architect. STRICTLY enforce caption variety by content type - Educational posts MUST be 250-400 words, Promotional MUST be 100-200 words. Ensure MINIMUM 5 video days distributed throughout the month. Maintain aggressive white space formatting.",
+        systemInstruction: "Lead Content Architect & Strategic Growth Specialist. Analyze previous month history to ensure brand EVOLUTION. Focus on upcoming month trends and enforce caption variety and aggressive white space.",
         responseMimeType: "application/json",
         responseSchema: CONTENT_SCHEMA,
       },
@@ -424,34 +393,36 @@ ${type}:
   });
 
   if (!response?.text) throw new Error("Vanguard Engine returned an empty response.");
-  
+
   const json = extractJson(response.text);
-  const endDate = new Date(baseDate);
+  const nextMonthDate = new Date(baseDate);
+  nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+  const endDate = new Date(nextMonthDate);
   endDate.setDate(endDate.getDate() + 30);
 
   // ✅ WEEK 1: Validate and fix video distribution
   const validatedCalendar = validateVideoDistribution(json.calendar);
 
-  return { 
-    ...json, 
+  return {
+    ...json,
     calendar: validatedCalendar,
-    insights, 
-    context: { 
-      today: baseDate, 
-      endDate: endDate.toISOString().split('T')[0], 
-      quarter: Math.ceil((new Date(baseDate).getMonth() + 1) / 3),
-      seasonalFocus: json.context?.seasonalFocus || "Seasonal Growth",
-      urgencyAngle: json.context?.urgencyAngle || "Market Opportunity",
+    insights,
+    context: {
+      today: nextMonthDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+      quarter: Math.ceil((nextMonthDate.getMonth() + 1) / 3),
+      seasonalFocus: json.context?.seasonalFocus || "Recursive Expansion",
+      urgencyAngle: json.context?.urgencyAngle || "Growth Opportunity",
       industryTrends: json.context?.industryTrends || []
-    } 
+    }
   };
 }
 
 export async function regenerateDay(business: BusinessInfo, currentDay: ContentDay, feedback: string): Promise<ContentDay> {
   // ✅ WEEK 1: Apply caption variety to regenerated days
   const guidelines = CAPTION_LENGTH_GUIDELINES[currentDay.content_type as keyof typeof CAPTION_LENGTH_GUIDELINES];
-  const lengthInstruction = guidelines 
-    ? `MAINTAIN ${guidelines.minWords}-${guidelines.maxWords} WORD COUNT. Structure: ${guidelines.structure}` 
+  const lengthInstruction = guidelines
+    ? `MAINTAIN ${guidelines.minWords}-${guidelines.maxWords} WORD COUNT. Structure: ${guidelines.structure}`
     : '';
 
   const response: GenerateContentResponse = await retryableCall(() => {
@@ -473,7 +444,7 @@ export async function translateContent(hook: string, caption: string, targetLang
   const response: GenerateContentResponse = await retryableCall(() => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     return ai.models.generateContent({
-      model: "gemini-3-flash-preview", 
+      model: "gemini-3-flash-preview",
       contents: `Transcreate to ${targetLanguage}. MAINTAIN AGGRESSIVE WHITE SPACE. ${JUAN_STYLE_PROMPT} HOOK: "${hook}" CAPTION: "${caption}"`,
       config: {
         responseMimeType: "application/json",
@@ -490,13 +461,13 @@ export async function translateContent(hook: string, caption: string, targetLang
 }
 
 export async function generateAIImage(
-  prompt: string, 
-  feedback?: string, 
-  existingBase64?: string, 
+  prompt: string,
+  feedback?: string,
+  existingBase64?: string,
   engine: 'gemini' | 'qwen' = 'gemini',
   aspectRatio: '9:16' | '16:9' | '1:1' = '9:16'
 ): Promise<string> {
-  
+
   if (engine === 'qwen') {
     console.log('🔀 Routing to Qwen image engine');
     try {
@@ -505,40 +476,40 @@ export async function generateAIImage(
       console.error('❌ Qwen failed, falling back to Gemini:', err.message);
     }
   }
-  
+
   console.log('🎨 Using Gemini image engine');
-  
+
   const response: GenerateContentResponse = await retryableCall(async () => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     const parts: any[] = [];
-    
+
     if (existingBase64 && feedback) {
       let base64Data: string;
       let mimeType: string = 'image/png';
-      
+
       if (existingBase64.startsWith('http')) {
         console.log(`📥 Fetching image for editing from: ${existingBase64}`);
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 30000);
-          
+
           const response = await fetch(existingBase64, {
             method: 'GET',
             mode: 'cors',
             cache: 'no-cache',
             signal: controller.signal
           });
-          
+
           clearTimeout(timeoutId);
-          
+
           if (!response.ok) {
             throw new Error(`Failed to fetch image: HTTP ${response.status}`);
           }
-          
+
           const blob = await response.blob();
           const arrayBuffer = await blob.arrayBuffer();
           const bytes = new Uint8Array(arrayBuffer);
-          
+
           let binary = '';
           const chunkSize = 8192;
           for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -547,7 +518,7 @@ export async function generateAIImage(
           }
           base64Data = btoa(binary);
           mimeType = blob.type || 'image/png';
-          
+
           console.log(`✅ Image fetched and converted: ${base64Data.length} chars`);
         } catch (err: any) {
           if (err.name === 'AbortError') {
@@ -565,11 +536,11 @@ export async function generateAIImage(
       } else {
         base64Data = existingBase64;
       }
-      
+
       parts.push({ inlineData: { data: base64Data, mimeType } });
       parts.push({ text: `EDIT REQUEST: "${feedback}". Maintain composition and aspect ratio. Keep the core subject matter but apply the requested changes.` });
     } else {
-      parts.push({ 
+      parts.push({
         text: `${prompt}
 
 CRITICAL REQUIREMENTS:
@@ -578,52 +549,52 @@ CRITICAL REQUIREMENTS:
 - Professional commercial photography quality, 8k resolution
 - Cinematic lighting and composition
 - NO abstract concepts or metaphors
-- The viewer should immediately understand the post topic from the image alone` 
+- The viewer should immediately understand the post topic from the image alone`
       });
     }
-    
+
     console.log(`📸 Gemini API call with aspectRatio: ${aspectRatio}`);
     return ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { parts },
       config: { imageConfig: { aspectRatio } }
     });
-  });  
-  
+  });
+
   const data = response.candidates?.[0]?.content?.parts.find(p => p.inlineData)?.inlineData?.data;
   if (!data) throw new Error("Rendering failed.");
   return `data:image/png;base64,${data}`;
 }
 
 export async function generateAIVideo(
-  imageUri: string, 
-  topic: string, 
+  imageUri: string,
+  topic: string,
   strategy: string,
   contentType?: string,
   brandDNA?: BrandDNA,
   engine: 'gemini' | 'qwen' = 'gemini'
 ): Promise<{ url: string, uri: string, blob: Blob }> {
-  
+
   if (engine === 'qwen') {
     console.log('🔀 Routing to Qwen video engine');
     try {
       const result = await generateQwenVideo(imageUri, topic);
-      return { 
-        url: result.url, 
+      return {
+        url: result.url,
         uri: result.url,
-        blob: result.blob 
+        blob: result.blob
       };
     } catch (err: any) {
       console.error('❌ Qwen video failed, falling back to Gemini:', err.message);
     }
   }
-  
+
   console.log('🎬 Using Gemini video engine');
-  
+
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
-  
+
   const getMotionStyle = (type: string): string => {
-    switch(type) {
+    switch (type) {
       case 'Educational': return 'Slow zoom in to reveal detail, methodical panning to highlight key learning points';
       case 'Promotional': return 'Dynamic push-in with energy, quick reveals, attention-grabbing opening';
       case 'Engagement': return 'Natural human-centric movement, follow subject authentically, relatable perspective';
@@ -644,7 +615,7 @@ export async function generateAIVideo(
   };
 
   const getPacing = (type: string): string => {
-    switch(type) {
+    switch (type) {
       case 'Promotional': return 'Fast, energetic (3-5 seconds optimal, hook immediately)';
       case 'Educational': return 'Moderate, clear pacing (5-7 seconds, allow comprehension)';
       case 'Testimonial': return 'Slow, intimate (6-8 seconds, build emotional connection)';
@@ -654,17 +625,17 @@ export async function generateAIVideo(
   };
 
   const getDuration = (type: string): string => {
-    switch(type) {
+    switch (type) {
       case 'Promotional': return '5 seconds';
       case 'Educational': return '7 seconds';
       case 'Testimonial': return '8 seconds';
       default: return '6 seconds';
     }
   };
-  
+
   let base64Data: string;
   let mimeType: string = 'image/png';
-  
+
   if (imageUri.startsWith('data:')) {
     const matches = imageUri.match(/^data:([^;]+);base64,(.+)$/);
     if (!matches) {
@@ -675,38 +646,38 @@ export async function generateAIVideo(
   } else if (imageUri.startsWith('http')) {
     try {
       console.log(`📥 Fetching image from URL: ${imageUri}`);
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
+
       const response = await fetch(imageUri, {
         method: 'GET',
         mode: 'cors',
         cache: 'no-cache',
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const blob = await response.blob();
       console.log(`📦 Blob received: ${blob.size} bytes, type: ${blob.type}`);
-      
+
       if (blob.size === 0) {
         throw new Error("Received empty blob from URL");
       }
-      
+
       if (blob.size > 20 * 1024 * 1024) {
         throw new Error("Image too large for video generation (max 20MB)");
       }
-      
+
       let finalBlob = blob;
       if (blob.size > 1024 * 1024) {
         console.log(`⚙️ Compressing image from ${(blob.size / 1024 / 1024).toFixed(2)}MB...`);
-        
+
         try {
           const img = new Image();
           const blobUrl = URL.createObjectURL(blob);
@@ -715,11 +686,11 @@ export async function generateAIVideo(
             img.onerror = reject;
             img.src = blobUrl;
           });
-          
+
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          
+
           const MAX_DIM = 1920;
           if (width > MAX_DIM || height > MAX_DIM) {
             if (width > height) {
@@ -730,14 +701,14 @@ export async function generateAIVideo(
               height = MAX_DIM;
             }
           }
-          
+
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           if (!ctx) throw new Error('Canvas context failed');
-          
+
           ctx.drawImage(img, 0, 0, width, height);
-          
+
           finalBlob = await new Promise<Blob>((resolve, reject) => {
             canvas.toBlob(
               (b) => b ? resolve(b) : reject(new Error('Blob creation failed')),
@@ -745,7 +716,7 @@ export async function generateAIVideo(
               0.85
             );
           });
-          
+
           URL.revokeObjectURL(blobUrl);
           console.log(`✅ Compressed to ${(finalBlob.size / 1024 / 1024).toFixed(2)}MB`);
           mimeType = 'image/jpeg';
@@ -754,13 +725,13 @@ export async function generateAIVideo(
           finalBlob = blob;
         }
       }
-      
+
       const arrayBuffer = await finalBlob.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
-      
+
       if (!finalBlob.type || finalBlob.type === '' || finalBlob.type === 'application/octet-stream') {
         console.warn('⚠️ Blob has no type, detecting from magic bytes...');
-        
+
         if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
           mimeType = 'image/png';
         }
@@ -774,12 +745,12 @@ export async function generateAIVideo(
           console.error('❌ Unknown image format, defaulting to JPEG');
           mimeType = 'image/jpeg';
         }
-        
+
         console.log(`✅ Detected mimeType: ${mimeType}`);
       } else {
         mimeType = finalBlob.type;
       }
-      
+
       let binary = '';
       const chunkSize = 8192;
       for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -787,9 +758,9 @@ export async function generateAIVideo(
         binary += String.fromCharCode.apply(null, Array.from(chunk));
       }
       base64Data = btoa(binary);
-      
+
       console.log(`✅ Base64 conversion complete: ${base64Data.length} chars, mimeType: ${mimeType}`);
-      
+
     } catch (err: any) {
       if (err.name === 'AbortError') {
         throw new Error("Image fetch timeout (30s). Image may be too large or network too slow.");
@@ -799,40 +770,40 @@ export async function generateAIVideo(
   } else {
     base64Data = imageUri;
   }
-  
+
   if (base64Data.length === 0) {
     throw new Error("Empty base64 data - image conversion failed");
   }
-  
+
   if (!mimeType || mimeType === '') {
     console.warn('⚠️ Missing mimeType, defaulting to image/png');
     mimeType = 'image/png';
   }
-  
+
   const validMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
   if (!validMimeTypes.includes(mimeType.toLowerCase())) {
     console.warn(`⚠️ Invalid mimeType '${mimeType}', converting to image/png`);
     mimeType = 'image/png';
   }
-  
+
   console.log(`🎬 Video generation starting with mimeType: ${mimeType}, base64 length: ${base64Data.length}`);
-  
+
   console.log('📤 Sending to Gemini API:', {
     hasBase64: !!base64Data,
     base64Length: base64Data.length,
     mimeType: mimeType,
     isValidBase64: /^[A-Za-z0-9+/]+={0,2}$/.test(base64Data.substring(0, 100))
   });
-  
+
   const model = 'veo-3.1-fast-generate-preview';
-  
+
   console.log('🔍 Checking Veo model availability...');
   try {
     const modelsResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}?key=${import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY}`,
       { method: 'GET' }
     );
-    
+
     if (modelsResponse.ok) {
       const modelInfo = await modelsResponse.json();
       console.log('✅ Veo model available:', {
@@ -847,7 +818,7 @@ export async function generateAIVideo(
   } catch (checkErr: any) {
     console.error('⚠️ Model availability check failed:', checkErr.message);
   }
-  
+
   const videoPrompt = `
 STRATEGIC ANIMATED VIDEO BRIEF
 
@@ -896,11 +867,11 @@ AVOID (Critical):
 
 GOAL: Create strategic animation that enhances the message, aligns with platform behavior, and serves the content type's specific purpose.
 `;
-  
+
   console.log('🎬 Calling Gemini Video API directly (bypassing SDK)...');
-  
+
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
-  
+
   let operation;
   try {
     const response = await fetch(
@@ -940,9 +911,9 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
       metadata: operationData.metadata,
       response: operationData.response
     };
-    
+
     console.log('✅ Video operation started:', operation.name);
-    
+
   } catch (apiErr: any) {
     console.error('❌ Gemini API Error Details:', {
       message: apiErr.message,
@@ -951,7 +922,7 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
       name: apiErr.name,
       stack: apiErr.stack?.split('\n')[0]
     });
-    
+
     if (apiErr.response) {
       try {
         const responseText = await apiErr.response.text();
@@ -960,63 +931,63 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
         console.error('📋 Response body could not be parsed');
       }
     }
-    
+
     if (apiErr.message?.includes('quota')) {
       throw new Error(`Gemini API Quota Exceeded. Please check your API key limits and billing.`);
     }
-    
+
     if (apiErr.message?.includes('Invalid argument') || apiErr.message?.includes('400')) {
       throw new Error(`Gemini rejected the video request. This may be due to: 1) Image size still too large (${(base64Data.length / 1024).toFixed(0)}KB), 2) Model not available for your API key, 3) Invalid parameters. Original error: ${apiErr.message}`);
     }
-    
+
     let errorMsg = apiErr.message || 'Video generation failed';
     throw new Error(`Gemini Video API Error: ${errorMsg}. Image size: ${(base64Data.length / 1024).toFixed(0)}KB, mimeType: ${mimeType}`);
   }
-  
+
   console.log(`🎬 Video operation started, polling for completion...`);
-  
+
   let pollCount = 0;
   const maxPolls = 60;
-  
+
   while (!operation.done && pollCount < maxPolls) {
     await new Promise(r => setTimeout(r, 10000));
-    
+
     const statusResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/${operation.name}?key=${apiKey}`,
       { method: 'GET' }
     );
-    
+
     if (!statusResponse.ok) {
       console.error('⚠️ Status check failed:', statusResponse.status);
       pollCount++;
       continue;
     }
-    
+
     const statusData = await statusResponse.json();
     operation.done = statusData.done || false;
     operation.response = statusData.response;
-    
+
     pollCount++;
-    
+
     if (pollCount % 6 === 0) {
       console.log(`🎬 Still rendering... (${pollCount * 10}s elapsed)`);
     }
   }
-  
+
   if (!operation.done) {
     throw new Error("Video generation timeout after 10 minutes");
   }
-  
+
   const uri = operation.response?.generatedVideos?.[0]?.video?.uri;
   if (!uri) {
     console.error("Video operation response:", JSON.stringify(operation.response, null, 2));
     throw new Error("Video render failed - no URI returned");
   }
-  
+
   console.log(`✅ Video generated successfully: ${uri}`);
-  
+
   const downloadUrl = `${uri}&key=${apiKey}`;
-  
+
   try {
     const resp = await vanguardFetch(downloadUrl, {}, 4);
     const blob = await resp.blob();
