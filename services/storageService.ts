@@ -71,7 +71,7 @@ export class StorageService {
   private saveTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private inFlightSaves: Set<string> = new Set();
   private isHydrating: boolean = false;
-  
+
   // Caching layer
   private projectsCache: CacheEntry<Project[]> | null = null;
   private readonly CACHE_TTL = 60000; // 1 minute cache
@@ -113,19 +113,19 @@ export class StorageService {
         .from('projects')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (status >= 500 || status === 429) {
         this.triggerCircuitBreaker();
         return local;
       }
       if (error) throw error;
-      
+
       const remoteProjects = (data || []).map(p => ({ ...p, id: p.id_random || p.id }));
       this.saveLocalProjects(remoteProjects);
-      
+
       // Cache the result
       this.projectsCache = { data: remoteProjects, timestamp: Date.now() };
-      
+
       return remoteProjects;
     } catch (err: any) {
       if (err.message?.includes('fetch') || err.message?.includes('timeout')) {
@@ -178,10 +178,10 @@ export class StorageService {
       if (error) throw error;
       const synced = { ...data, id: data.id_random || data.id };
       this.saveLocalProjects([synced, ...localProjects]);
-      
+
       // Invalidate cache when creating project
       this.projectsCache = null;
-      
+
       return synced;
     } catch (err: any) {
       this.saveLocalProjects([newProject, ...localProjects]);
@@ -214,12 +214,12 @@ export class StorageService {
 
   private async performCloudSave(projectId: string, strategy: StrategyResult) {
     if (this.inFlightSaves.has(projectId)) {
-      this.saveStrategy(projectId, strategy); 
+      this.saveStrategy(projectId, strategy);
       return;
     }
 
     this.inFlightSaves.add(projectId);
-    
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -242,14 +242,14 @@ export class StorageService {
           .from('strategies')
           .update({ data: strategy, updated_at: new Date().toISOString() })
           .eq('id', existing.id);
-        
+
         if (patchStatus >= 500 || patchStatus === 429) this.triggerCircuitBreaker();
         if (error) throw error;
       } else {
         const { error, status: postStatus } = await supabase
           .from('strategies')
           .insert({ project_id: projectId, month_id: monthId, data: strategy });
-          
+
         if (postStatus >= 500 || postStatus === 429) this.triggerCircuitBreaker();
         if (error) throw error;
       }
@@ -277,7 +277,7 @@ export class StorageService {
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      
+
       if (status >= 500 || status === 429) {
         this.triggerCircuitBreaker();
         return localData;
@@ -300,14 +300,14 @@ export class StorageService {
     const projects = this.getLocalProjects();
     this.saveLocalProjects(projects.filter(p => p.id !== projectId));
     localStorage.removeItem(`${STORAGE_KEYS.STRATEGIES}${projectId}`);
-    
+
     // Invalidate cache when deleting project
     this.projectsCache = null;
-    
+
     if (this.isCircuitOpen() || projectId.startsWith('local_')) return;
     try {
       await supabase.from('projects').delete().eq('id_random', projectId);
-    } catch (err) {}
+    } catch (err) { }
   }
 
   async getAssets(projectId: string): Promise<any[]> {
@@ -332,12 +332,12 @@ export class StorageService {
     console.log(`📂 Loading assets for project ${projectId}...`);
     let cloudAssets: any[] = [];
     let localAssets: any[] = [];
-    
+
     // Load from IndexedDB and manage persistent blob URLs
     try {
       const vaulted = await vault.getAllForProject(projectId);
       console.log(`💾 Found ${vaulted.length} assets in IndexedDB`);
-      
+
       localAssets = vaulted.map(a => {
         let blobUrl = this.blobUrlCache.get(a.id);
         if (!blobUrl) {
@@ -345,7 +345,7 @@ export class StorageService {
           this.blobUrlCache.set(a.id, blobUrl);
           console.log(`🔗 Created blob URL for ${a.id}: ${blobUrl}`);
         }
-        
+
         return {
           url: blobUrl,
           day_index: a.dayIndex,
@@ -356,7 +356,7 @@ export class StorageService {
           source: 'indexeddb'
         };
       });
-    } catch (err) {}
+    } catch (err) { }
 
     if (this.isCircuitOpen()) {
       console.log(`⚠️ Circuit breaker open - returning ${localAssets.length} local assets only`);
@@ -369,7 +369,7 @@ export class StorageService {
         .from('assets')
         .select('*')
         .eq('project_id', projectId);
-        
+
       if (status < 500) {
         cloudAssets = (data || []).map(a => ({ ...a, source: 'cloud' }));
         console.log(`☁️ Found ${cloudAssets.length} assets in cloud`);
@@ -408,7 +408,7 @@ export class StorageService {
     const assetId = `${projectId}_${type}_${dayIndex}_${Date.now()}`;
     try {
       await vault.save({ id: assetId, projectId, dayIndex, type, data: blob, metadata });
-    } catch (err) {}
+    } catch (err) { }
     if (this.isLocalOnly() || projectId.startsWith('local_')) {
       return URL.createObjectURL(blob);
     }
@@ -424,13 +424,13 @@ export class StorageService {
         .upload(fileName, file, { contentType: file.type, cacheControl: '3600', upsert: true });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('Assets').getPublicUrl(data.path);
-      const { error: dbError } = await supabase.from('assets').insert({ 
+      const { error: dbError } = await supabase.from('assets').insert({
         user_id: user_id,
-        project_id: projectId, 
-        day_index: dayIndex, 
-        type, 
-        url: publicUrl, 
-        metadata 
+        project_id: projectId,
+        day_index: dayIndex,
+        type,
+        url: publicUrl,
+        metadata
       });
       if (dbError) throw dbError;
       return publicUrl;
@@ -446,7 +446,7 @@ export class StorageService {
     if (this.isCircuitOpen()) return;
     try {
       await supabase.from('assets').delete().eq('url', url);
-    } catch (err) {}
+    } catch (err) { }
   }
 
   async getArchive(projectId: string): Promise<StrategyResult[]> {
@@ -488,7 +488,10 @@ export class StorageService {
         this.triggerCircuitBreaker();
         throw new Error("Vault Timeout");
       }
+      // ✅ SUCCESS: Clear active local strategy to avoid "ghosts"
+      localStorage.removeItem(`${STORAGE_KEYS.STRATEGIES}${projectId}`);
     } catch (err: any) {
+      if (err.message === "Vault Timeout") throw err;
       throw new Error(`Cloud Sync Unavailable.`);
     }
   }
