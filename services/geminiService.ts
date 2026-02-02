@@ -289,7 +289,36 @@ export async function generateContentStrategy(business: BusinessInfo, previousSt
     4. Reference the natural progression of a brand's story.
   ` : "INITIAL SETUP: This is the first month of the campaign. Focus on brand foundation and initial market alignment.";
 
-  // Enhanced research with multiple targeted queries, adjusted for upcoming month
+  // 1. DYNAMIC QUERY GENERATION: Generate 5-7 ultra-targeted search queries
+  const queryGenResponse = await retryableCall(() => {
+    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
+    return ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `
+        TASK: Generate 6 ultra-targeted search queries for market research.
+        
+        COMPANY: ${business.name}
+        INDUSTRY: ${business.industry}
+        AUDIENCE: ${business.targetAudience}
+        GOALS: ${business.mainGoals}
+        CLIENT GUIDANCE: ${business.monthlyGuidance || "None provided. Focus on general growth and engagement."}
+        PLANNING FOR: ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long', year: 'numeric' })}
+        
+        REQUIREMENTS:
+        - 2 queries must focus on upcoming seasonal trends for the planning month.
+        - 2 queries must focus on the specific CLIENT GUIDANCE if provided.
+        - 2 queries must focus on competitor gaps or emerging industry news.
+        
+        OUTPUT: Return only a JSON array of strings.
+      `,
+      config: { responseMimeType: "application/json" }
+    });
+  });
+
+  const dynamicQueries = extractJson(queryGenResponse.text || "[]");
+  const searchQueryText = Array.isArray(dynamicQueries) ? dynamicQueries.join('\n- ') : "Standard industry research";
+
+  // 2. ENHANCED GROUNDED RESEARCH: Use dynamic queries to pull real-time data
   const research: GenerateContentResponse = await retryableCall(() => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     return ai.models.generateContent({
@@ -299,32 +328,15 @@ export async function generateContentStrategy(business: BusinessInfo, previousSt
         
         Industry: ${business.industry}
         Target Audience: ${business.targetAudience}
-        Planning Date: ${baseDate}
-        Target Month for Strategy: ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long', year: 'numeric' })}
-        Business: ${business.name}
-        Core Values: ${business.coreValues}
-        Main Goals: ${business.mainGoals}
+        Planning Month: ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long', year: 'numeric' })}
+        Client Guidance: ${business.monthlyGuidance || "General growth and engagement."}
         
         ${evolutionContext}
 
-        RESEARCH OBJECTIVES:
-        1. Find 8-10 HIGH-QUALITY sources from authoritative sites
-        2. Prioritize: Industry publications, upcoming trends for next month, seasonal triggers
-        3. Identify emerging opportunities that weren't present 30 days ago
-        4. Focus on ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long' })} specific events or consumer behaviors
+        SEARCH STRATEGY:
+        ${searchQueryText}
         
-        MULTI-ANGLE SEARCH STRATEGY (execute all):
-        - "${business.industry} trends ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long', year: 'numeric' })}"
-        - "${business.targetAudience} seasonal pain points ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long' })}"
-        - "${business.industry} innovations and news last 2 weeks"
-        - "marketing opportunities for ${business.industry} in ${new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toLocaleString('default', { month: 'long' })}"
-        
-        QUALITY CRITERIA:
-        - Published within last 14-30 days strongly preferred
-        - From reputable sources: industry journals, research firms
-        
-        DELIVERABLE:
-        Provide a comprehensive market intelligence report for the UPCOMING month.
+        TASK: Synthesize the web search results into a high-level intelligence report. Focus on specific opportunities related to the Client Guidance.
       `,
       config: {
         tools: [{ googleSearch: {} }],
@@ -375,11 +387,16 @@ ${type}:
         contents: `
           BUSINESS CONTEXT: ${JSON.stringify(business)}
           ${brandContext}
+          CLIENT STRATEGIC GUIDANCE: ${business.monthlyGuidance || "None provided."}
+          ============================================================================
           MARKET RESEARCH DATA: ${researchText}
           STRATEGIC EVOLUTION: ${evolutionContext}
 
           TASK: Generate DAYS ${startDay} to ${endDay} of a 30-day "Juan-Style" Content Strategy.
           
+          ============================================================================
+          🚨 CRITICAL COMMAND: ADHERE TO CLIENT STRATEGIC GUIDANCE
+          Ensure that the content for this batch directly reflects and executes the guidance provided: "${business.monthlyGuidance || "General Growth"}".
           ============================================================================
           📊 BATCH GENERATION: STAGE ${batch} OF 3
           ============================================================================
