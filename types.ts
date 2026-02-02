@@ -57,20 +57,31 @@ export interface BusinessInfo {
   brandDNA?: BrandDNA;
 }
 
-export interface OverlaySettings {
-  text: string;
-  font: string;
-  color: string;
+export interface VisualLayer {
+  type: 'text' | 'image';
+  id: string; // Added for better tracking
+  text?: string;
+  font?: string;
+  color?: string;
   size: number;
-  isBold: boolean;
+  isBold?: boolean;
   pos: { x: number; y: number };
+  rotation: number; // In degrees
+  scale: number; // Multiplier
+  opacity: number; // 0 to 1
   glassStyle: 'none' | 'glass-light' | 'glass-dark' | 'glass-tint';
   textAlign: 'left' | 'center' | 'right';
   hasShadow: boolean;
   shadowBlur: number;
   strokeColor: string;
   strokeWidth: number;
+  imageUrl?: string; // For image layers
+  width?: number; // For image layers
+  height?: number; // For image layers
 }
+
+export type OverlaySettings = VisualLayer; // Maintain backward compatibility for now
+
 
 export interface ContentDay {
   day: number;
@@ -131,18 +142,18 @@ export interface GeneratedImage {
   dayIndex: number;
   promptIndex: number;
   url: string;
-  modelId: 'gemini' | 'qwen';
+  modelId: 'gemini' | 'qwen' | 'upload';
   createdAt: number;
 }
 
 export interface GeneratedVideo {
   id?: number;
   dayIndex: number;
-  url: string; 
-  permanentUri?: string; 
+  url: string;
+  permanentUri?: string;
   version: number;
   createdAt: number;
-  modelId: 'gemini' | 'qwen';
+  modelId: 'gemini' | 'qwen' | 'upload';
   blob?: Blob; // Added for persistence
 }
 
