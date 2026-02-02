@@ -474,7 +474,18 @@ export class StorageService {
   async finalizeStrategy(projectId: string, strategy: StrategyResult): Promise<void> {
     const archivedAt = new Date().toISOString();
     const monthId = strategy.monthId || archivedAt.slice(0, 7);
-    const archivedStrategy = { ...strategy, archivedAt };
+
+    // ✅ STRIP IMAGES/VIDEOS FOR ARCHIVE (Text-only memory)
+    const leanCalendar = strategy.calendar.map(day => ({
+      ...day,
+      generatedImages: [],
+      generatedVideos: [],
+      finalImageUrl: undefined,
+      finalVideoUrl: undefined,
+      visualLayers: undefined
+    }));
+
+    const archivedStrategy = { ...strategy, calendar: leanCalendar, archivedAt };
     if (this.isCircuitOpen() || projectId.startsWith('local_')) {
       localStorage.setItem(`${STORAGE_KEYS.STRATEGIES}${projectId}_archive_${monthId}`, JSON.stringify(archivedStrategy));
       return;
