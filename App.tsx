@@ -210,7 +210,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleKickoffNextMonth = async () => {
+  const handleKickoffNextMonth = async (guidance?: string) => {
     if (!finalizedStrategy || !activeProject) return;
     const history = finalizedStrategy;
     setFinalizedStrategy(null);
@@ -221,7 +221,13 @@ const App: React.FC = () => {
       setGeneratedVideos([]);
       setVisualLayers({});
 
-      const result = await generateContentStrategy(activeProject.business_info, history);
+      // Update business info with new guidance
+      const updatedBusinessInfo = {
+        ...activeProject.business_info,
+        monthlyGuidance: guidance
+      };
+
+      const result = await generateContentStrategy(updatedBusinessInfo, history);
       await storage.saveStrategy(activeProject.id, result);
       setStrategy(result);
       setSelectedDay(result.calendar[0]);
