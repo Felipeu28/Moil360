@@ -9,7 +9,8 @@ import {
     CheckCircle2,
     Sparkles,
     BarChart3,
-    Award
+    Award,
+    Target
 } from 'lucide-react';
 
 interface Props {
@@ -23,6 +24,8 @@ interface Props {
 export const MonthOverView: React.FC<Props> = ({ strategy, lang, onKickoff, onClose, assetSummary }) => {
     const t = translations[lang] || translations['EN'];
     const [guidance, setGuidance] = React.useState('');
+    const [sentiment, setSentiment] = React.useState<'good' | 'pivot' | 'double'>('good');
+    const [mission, setMission] = React.useState(strategy.strategicMission || 'Growth');
 
     const metrics = [
         { label: 'Intelligence Depth', value: `${strategy.quality_score}%`, icon: TrendingUp, color: 'text-emerald-400' },
@@ -66,6 +69,44 @@ export const MonthOverView: React.FC<Props> = ({ strategy, lang, onKickoff, onCl
                     ))}
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                    <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-white/5 space-y-4">
+                        <div className="flex items-center gap-4">
+                            <Layers className="w-5 h-5 text-indigo-400" />
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.sentiment_reflection}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            {(['good', 'pivot', 'double'] as const).map((type) => (
+                                <button
+                                    key={type}
+                                    onClick={() => setSentiment(type)}
+                                    className={`p-4 rounded-2xl border-2 transition-all text-center flex flex-col items-center gap-2 ${sentiment === type ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/5 bg-white/5'}`}
+                                >
+                                    <span className="text-[8px] font-black uppercase tracking-widest">{t[`sentiment_${type}` as keyof typeof t]}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-white/5 space-y-4">
+                        <div className="flex items-center gap-4">
+                            <Target className="w-5 h-5 text-rose-400" />
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.strategic_mission}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {(['Growth', 'Sales', 'Authority', 'Community'] as const).map((m) => (
+                                <button
+                                    key={m}
+                                    onClick={() => setMission(m)}
+                                    className={`p-3 rounded-2xl border-2 transition-all text-center ${mission === m ? 'border-rose-500 bg-rose-500/10' : 'border-white/5 bg-white/5'}`}
+                                >
+                                    <span className="text-[8px] font-black uppercase tracking-widest">{t[`mission_${m.toLowerCase()}` as keyof typeof t]}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
                 <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-white/5 relative group space-y-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -83,7 +124,10 @@ export const MonthOverView: React.FC<Props> = ({ strategy, lang, onKickoff, onCl
 
                 <div className="flex flex-col md:flex-row items-center gap-6 mt-4">
                     <button
-                        onClick={() => onKickoff(guidance)}
+                        onClick={() => {
+                            const combinedGuidance = `[SENTIMENT: ${sentiment.toUpperCase()}] [MISSION: ${mission}] ${guidance}`;
+                            onKickoff(combinedGuidance);
+                        }}
                         className="flex-1 w-full bg-white text-slate-950 px-10 py-6 rounded-3xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-4 shadow-2xl transition-all hover:scale-[1.02] active:scale-95 group"
                     >
                         <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
