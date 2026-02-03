@@ -19,11 +19,17 @@ class AssetVault {
   async init(): Promise<IDBDatabase> {
     if (this.db) return this.db;
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      const request = indexedDB.open(DB_NAME, DB_VERSION + 1); // Bump version for index
       request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains(ASSET_STORE)) {
-          db.createObjectStore(ASSET_STORE, { keyPath: 'id' });
+          const store = db.createObjectStore(ASSET_STORE, { keyPath: 'id' });
+          store.createIndex('projectId', 'projectId', { unique: false });
+        } else {
+          const store = request.transaction!.objectStore(ASSET_STORE);
+          if (!store.indexNames.contains('projectId')) {
+            store.createIndex('projectId', 'projectId', { unique: false });
+          }
         }
       };
       request.onsuccess = () => {
@@ -49,11 +55,9 @@ class AssetVault {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(ASSET_STORE, 'readonly');
       const store = tx.objectStore(ASSET_STORE);
-      const request = store.getAll();
-      request.onsuccess = () => {
-        const results = request.result.filter(a => a.projectId === projectId);
-        resolve(results);
-      };
+      const index = store.index('projectId');
+      const request = index.getAll(projectId);
+      request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
   }
@@ -499,8 +503,6 @@ export class StorageService {
         this.triggerCircuitBreaker();
         throw new Error("Vault Timeout");
       }
-      // ✅ SUCCESS: Clear active local strategy to avoid "ghosts"
-      localStorage.removeItem(`${STORAGE_KEYS.STRATEGIES}${projectId}`);
     } catch (err: any) {
       if (err.message === "Vault Timeout") throw err;
       throw new Error(`Cloud Sync Unavailable.`);
