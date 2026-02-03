@@ -127,7 +127,7 @@ export const BusinessForm: React.FC<Props> = ({ onStart, onRemoteSync, onImport,
                     key={mission}
                     type="button"
                     onClick={() => setInfo({ ...info, strategicMission: mission })}
-                    className={`p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 ${info.strategicMission === mission ? 'border-indigo-500 bg-indigo-50 shadow-lg' : 'border-slate-50 bg-slate-50 hover:border-slate-200'}`}
+                    className={`p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 ${info.strategicMission === mission ? 'border-indigo-500 bg-indigo-50 shadow-lg text-indigo-900' : 'border-slate-50 bg-slate-50 hover:border-slate-200 text-slate-900'}`}
                   >
                     <span className="text-[9px] font-black uppercase tracking-widest">{t[`mission_${mission.toLowerCase()}` as keyof typeof t]}</span>
                   </button>
@@ -144,7 +144,7 @@ export const BusinessForm: React.FC<Props> = ({ onStart, onRemoteSync, onImport,
                     key={sig}
                     type="button"
                     onClick={() => setInfo({ ...info, visualSignature: sig })}
-                    className={`p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 ${info.visualSignature === sig ? 'border-rose-500 bg-rose-50 shadow-lg' : 'border-slate-50 bg-slate-50 hover:border-slate-200'}`}
+                    className={`p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-2 ${info.visualSignature === sig ? 'border-rose-500 bg-rose-50 shadow-lg text-rose-900' : 'border-slate-50 bg-slate-50 hover:border-slate-200 text-slate-900'}`}
                   >
                     <span className="text-[9px] font-black uppercase tracking-widest">{t[`sig_${sig.toLowerCase()}` as keyof typeof t]}</span>
                   </button>
