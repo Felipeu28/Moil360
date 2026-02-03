@@ -1,5 +1,13 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { BusinessInfo, ContentDay, MarketInsight, StrategyResult, MarketContext, BrandDNA } from "../types";
+import {
+  BusinessInfo, ContentDay,
+  StrategyResult,
+  MarketInsight,
+  StrategicMission,
+  VisualSignature,
+  BrandDNA,
+  MarketContext
+} from '../types';
 import { generateQwenImage, generateQwenVideo } from './qwenService';
 
 // ============================================================================
@@ -279,6 +287,14 @@ export async function generateContentStrategy(
   const year = new Date(baseDate).getFullYear();
   const brandContext = business.brandDNA ? `BRAND IDENTITY: Colors ${business.brandDNA.primaryColor}, Tone: ${business.brandDNA.toneVoice}. Negative Keywords: ${business.brandDNA.negativeKeywords.join(', ')}.` : "";
 
+  // ✅ EXTRACT MISSION FROM GUIDANCE (if sent via post-mortem bridge)
+  let activeMission: StrategicMission = business.strategicMission || 'Growth';
+  if (business.monthlyGuidance?.includes('[MISSION:')) {
+    const match = business.monthlyGuidance.match(/\[MISSION:\s*(\w+)\]/);
+    if (match && match[1]) activeMission = match[1] as StrategicMission;
+  }
+  let activeSignature: VisualSignature = business.visualSignature || 'Bold';
+
   // RECURSIVE GROWTH ENGINE: Analyze previous month if available
   const evolutionContext = previousStrategy ? `
     EVOLUTIONARY CONTEXT (Recursive Growth Engine):
@@ -386,21 +402,35 @@ ${type}:
 
     const batchResponse: GenerateContentResponse = await retryableCall(() => {
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
+
+      const missionWeights = {
+        Growth: "Focus on viral loops, hooks, and broad awareness. Skew towards Engagement and Entertainment.",
+        Sales: "Focus on conversion, urgency, and product benefits. Skew towards Promotional and Testimonial.",
+        Authority: "Focus on trust, deep insights, and case studies. Skew towards Educational and Testimonial.",
+        Community: "Focus on BTS, relatability, and comments. Skew towards Behind the Scenes and Engagement."
+      }[activeMission];
+
       return ai.models.generateContent({
-        model: "gemini-3-pro-preview",
+        model: "gemini-1.5-pro-preview-0514",
         contents: `
           BUSINESS CONTEXT: ${JSON.stringify(business)}
           ${brandContext}
+          PRIMARY STRATEGY: ${activeMission} Mission
+          STRATEGIC WEIGHTING: ${missionWeights}
+          VISUAL DIRECTION: ${activeSignature} Style
+          
           CLIENT STRATEGIC GUIDANCE: ${business.monthlyGuidance || "None provided."}
           ============================================================================
           MARKET RESEARCH DATA: ${researchText}
           STRATEGIC EVOLUTION: ${evolutionContext}
-
+          
           TASK: Generate DAYS ${startDay} to ${endDay} of a 30-day "Juan-Style" Content Strategy.
           
           ============================================================================
-          🚨 CRITICAL COMMAND: ADHERE TO CLIENT STRATEGIC GUIDANCE
-          Ensure that the content for this batch directly reflects and executes the guidance provided: "${business.monthlyGuidance || "General Growth"}".
+          🚨 CRITICAL COMMAND: ADHERE TO STRATEGIC MISSION & GUIDANCE
+          1. MISSION: The goal is ${business.strategicMission || 'Growth'}. ${missionWeights}
+          2. VISUALS: Every prompt Must reflect the ${business.visualSignature || 'Bold'} aesthetic.
+          3. GUIDANCE: Directly execute "${business.monthlyGuidance || "General Growth"}".
           ============================================================================
           📊 BATCH GENERATION: STAGE ${batch} OF 3
           ============================================================================
@@ -421,9 +451,11 @@ ${type}:
           ${batch > 1 ? `PREVIOUS DAYS CONTEXT: We have already generated Days 1 to ${startDay - 1}. Ensure Days ${startDay}-${endDay} continue the narrative flow logically.` : ""}
           
           ${JUAN_STYLE_PROMPT}
+
+          FORMAT INSTRUCTION: Ensure the 'content_type' distribution aligns with the ${business.strategicMission || 'Growth'} mission.
         `,
         config: {
-          systemInstruction: `Lead Content Architect & Strategic Growth Specialist. Stage ${batch}/3 of generation. Enforce caption variety and aggressive white space. Focus on Days ${startDay}-${endDay}.`,
+          systemInstruction: `Lead Content Architect & Strategic Growth Specialist. Current Mission: ${activeMission}. Aesthetic: ${activeSignature}. Stage ${batch}/3 of generation. Enforce caption variety and aggressive white space. Focus on Days ${startDay}-${endDay}.`,
           responseMimeType: "application/json",
           responseSchema: batch === 1 ? CONTENT_SCHEMA : BATCH_CALENDAR_SCHEMA,
         },
@@ -456,7 +488,9 @@ ${type}:
             seasonalFocus: "Recursive Analysis",
             urgencyAngle: "Market Growth",
             industryTrends: []
-          }
+          },
+          strategicMission: activeMission,
+          visualSignature: activeSignature
         });
       }
     }
@@ -481,6 +515,8 @@ ${type}:
     insights,
     summary: strategySummary,
     quality_score: qualityScore,
+    strategicMission: activeMission,
+    visualSignature: activeSignature,
     context: {
       today: nextMonthDate.toISOString().split('T')[0],
       endDate: endDate.toISOString().split('T')[0],
