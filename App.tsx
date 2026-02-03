@@ -10,7 +10,7 @@ import { CalendarGrid } from './components/CalendarGrid';
 import { DayDetailView } from './components/DayDetailView';
 import { ProjectPortal } from './components/ProjectPortal';
 import { MonthOverView } from './components/MonthOverView';
-import { generateContentStrategy, regenerateDay, fetchRemoteStrategy } from './services/geminiService';
+import { generateContentStrategy, regenerateDay, fetchRemoteStrategy, generateCSV } from './services/geminiService';
 import { storage } from './services/storageService';
 import { translations } from './services/i18nService';
 import { Layers, LogOut, ChevronLeft, Settings, TrendingUp, Globe, Search, RefreshCw, Database, CloudOff, AlertCircle, Construction } from 'lucide-react';
@@ -160,17 +160,30 @@ const App: React.FC = () => {
 
       console.log(`✅ Mapped ${mappedImages.length} images and ${mappedVideos.length} videos`);
 
-      setGeneratedImages(mappedImages);
-      setGeneratedVideos(mappedVideos);
       setActiveProject(project);
       setArchive(cloudArchive || []);
 
       if (strat) {
-        setStrategy(strat);
-        if (strat.visualLayers) setVisualLayers(strat.visualLayers);
-        setSelectedDay(strat.calendar?.[0] || null);
-        setView('strategy');
+        if (strat.archivedAt) {
+          console.log(`📜 Strategy is archived (${strat.monthId}). Entering Post-Mortem flow.`);
+          setFinalizedStrategy(strat);
+          setStrategy(null);
+          setGeneratedImages([]); // Clear active assets for archived view
+          setGeneratedVideos([]);
+          setVisualLayers({});
+        } else {
+          setStrategy(strat);
+          setGeneratedImages(mappedImages);
+          setGeneratedVideos(mappedVideos);
+          if (strat.visualLayers) setVisualLayers(strat.visualLayers);
+          setSelectedDay(strat.calendar?.[0] || null);
+          setView('strategy');
+        }
       } else {
+        setStrategy(null);
+        setGeneratedImages([]);
+        setGeneratedVideos([]);
+        setVisualLayers({});
         setView('form');
       }
     } catch (err: any) {
@@ -227,7 +240,13 @@ const App: React.FC = () => {
         monthlyGuidance: guidance
       };
 
-      const result = await generateContentStrategy(updatedBusinessInfo, history);
+      const onProgress = async (partial: Partial<StrategyResult>) => {
+        const fullPartial = partial as StrategyResult;
+        setStrategy(fullPartial);
+        await storage.saveStrategy(activeProject.id, fullPartial);
+      };
+
+      const result = await generateContentStrategy(updatedBusinessInfo, history, onProgress);
       await storage.saveStrategy(activeProject.id, result);
       setStrategy(result);
       setSelectedDay(result.calendar[0]);
@@ -253,7 +272,15 @@ const App: React.FC = () => {
       setGeneratedVideos([]);
       setVisualLayers({});
 
-      const result = await generateContentStrategy(info);
+      const onProgress = async (partial: Partial<StrategyResult>) => {
+        if (projectToUse) {
+          const fullPartial = partial as StrategyResult;
+          setStrategy(fullPartial);
+          await storage.saveStrategy(projectToUse.id, fullPartial);
+        }
+      };
+
+      const result = await generateContentStrategy(info, undefined, onProgress);
       await storage.saveStrategy(projectToUse.id, result);
       setStrategy(result);
       setSelectedDay(result.calendar[0]);
@@ -361,53 +388,11 @@ const App: React.FC = () => {
   };
 
   // ✅ NEW EXPORT FUNCTIONS START HERE
-  const handleExportCSV = () => {
-    if (!strategy || !strategy.calendar) {
-      alert("No active strategy found to export.");
-      return;
-    }
-
-    const headers = [
-      "Day",
-      "Date",
-      "Topic",
-      "Content Type",
-      "Hook",
-      "Full Caption",
-      "Call to Action",
-      "Hashtags",
-      "Best Time to Post",
-      "Requires Video"
-    ];
-
-    const rows = strategy.calendar.map(day => {
-      const clean = (str: string) => {
-        const val = str || '';
-        return `"${val.replace(/"/g, '""')}"`;
-      };
-
-      return [
-        day.day,
-        day.date,
-        clean(day.topic),
-        clean(day.content_type),
-        clean(day.hook),
-        clean(day.full_caption),
-        clean(day.cta),
-        clean(day.hashtags.join(' ')),
-        clean(day.best_time),
-        day.requires_video ? "Yes" : "No"
-      ].join(",");
-    });
-
-    const csvContent = [headers.join(","), ...rows].join("\n");
-
+  const downloadFile = (content: string, fileName: string, type: string) => {
     try {
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([content], { type });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const fileName = `Moil_Content360_${activeProject?.name.replace(/\s+/g, '_') || 'Strategy'}.csv`;
-
       link.setAttribute("href", url);
       link.setAttribute("download", fileName);
       document.body.appendChild(link);
@@ -415,9 +400,25 @@ const App: React.FC = () => {
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 100);
     } catch (error) {
-      console.error("CSV Export failed:", error);
-      alert("CSV export failed. Please try again.");
+      console.error("Download failed:", error);
+      alert("Download failed. Please try again.");
     }
+  };
+
+  const handleExportCSV = () => {
+    if (!strategy) {
+      alert("No active strategy found to export.");
+      return;
+    }
+    const csvContent = generateCSV(strategy);
+    const fileName = `Moil_Content360_${activeProject?.name.replace(/\s+/g, '_') || 'Strategy'}.csv`;
+    downloadFile(csvContent, fileName, 'text/csv;charset=utf-8;');
+  };
+
+  const handleExportArchiveCSV = (archivedStrategy: StrategyResult) => {
+    const csvContent = generateCSV(archivedStrategy);
+    const fileName = `Moil_Archive_${archivedStrategy.monthId}_${activeProject?.name.replace(/\s+/g, '_') || 'Strategy'}.csv`;
+    downloadFile(csvContent, fileName, 'text/csv;charset=utf-8;');
   };
 
   const handleExportMoil = () => {
@@ -716,6 +717,7 @@ const App: React.FC = () => {
           onSignOut={handleSignOut}
           onExport={handleExportMoil}
           onExportCSV={handleExportCSV}
+          onExportArchiveCSV={handleExportArchiveCSV}
           onImport={handleImport}
           onFinalize={handleFinalize}
           strategy={strategy}
