@@ -223,7 +223,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleKickoffNextMonth = async (guidance?: string) => {
+  const handleKickoffNextMonth = async (combinedGuidance?: string) => {
     if (!finalizedStrategy || !activeProject) return;
     const history = finalizedStrategy;
     setFinalizedStrategy(null);
@@ -234,20 +234,30 @@ const App: React.FC = () => {
       setGeneratedVideos([]);
       setVisualLayers({});
 
-      // Update business info with new guidance
-      const updatedBusinessInfo = {
-        ...activeProject.business_info,
-        monthlyGuidance: guidance
-      };
+      const baseDate = history.context?.today || new Date().toISOString().split('T')[0];
+      const nextMonthDate = new Date(baseDate);
+      nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+      const nextMonthLabel = nextMonthDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+      const newProject = await storage.createProject(
+        `${activeProject.name} (${nextMonthLabel})`,
+        activeProject.industry,
+        {
+          ...activeProject.business_info,
+          monthlyGuidance: combinedGuidance
+        }
+      );
+
+      setActiveProject(newProject);
 
       const onProgress = async (partial: Partial<StrategyResult>) => {
         const fullPartial = partial as StrategyResult;
         setStrategy(fullPartial);
-        await storage.saveStrategy(activeProject.id, fullPartial);
+        await storage.saveStrategy(newProject.id, fullPartial);
       };
 
-      const result = await generateContentStrategy(updatedBusinessInfo, history, onProgress);
-      await storage.saveStrategy(activeProject.id, result);
+      const result = await generateContentStrategy(newProject.business_info, history, onProgress);
+      await storage.saveStrategy(newProject.id, result);
       setStrategy(result);
       setSelectedDay(result.calendar[0]);
       setView('strategy');
@@ -261,11 +271,13 @@ const App: React.FC = () => {
   const handleCreateStrategy = async (info: BusinessInfo) => {
     setIsLoading(true);
     try {
-      let projectToUse = activeProject;
-      if (!projectToUse) {
-        projectToUse = await storage.createProject(info.name, info.industry, info);
-        setActiveProject(projectToUse);
-      }
+      // ✅ ALWAYS CREATE NEW PROJECT FOR NEW BLUEPRINT (User requested isolation)
+      const projectToUse = await storage.createProject(
+        `${info.name} (Launch - ${new Date().toLocaleDateString()})`,
+        info.industry,
+        info
+      );
+      setActiveProject(projectToUse);
 
       // ✅ CRITICAL FIX: Clear all asset states for the new project
       setGeneratedImages([]);
