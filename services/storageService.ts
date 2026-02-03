@@ -10,7 +10,7 @@ const STORAGE_KEYS = {
 };
 
 const DB_NAME = 'MoilVanguardVault';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bump version for index
 const ASSET_STORE = 'assets';
 
 class AssetVault {
@@ -19,7 +19,7 @@ class AssetVault {
   async init(): Promise<IDBDatabase> {
     if (this.db) return this.db;
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION + 1); // Bump version for index
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains(ASSET_STORE)) {
@@ -93,7 +93,7 @@ export class StorageService {
     return storedBreak ? now < parseInt(storedBreak) : false;
   }
 
-  private triggerCircuitBreaker(durationMs: number = 120000) { // Reduced 15min -> 2min
+  private triggerCircuitBreaker(durationMs: number = 120000) {
     const unstableUntil = Date.now() + durationMs;
     localStorage.setItem(STORAGE_KEYS.CIRCUIT, unstableUntil.toString());
     window.dispatchEvent(new CustomEvent('vanguard-circuit-tripped'));
@@ -104,7 +104,6 @@ export class StorageService {
   }
 
   async getProjects(): Promise<Project[]> {
-    // Check cache first
     if (this.projectsCache && (Date.now() - this.projectsCache.timestamp < this.CACHE_TTL)) {
       return this.projectsCache.data;
     }
@@ -126,10 +125,7 @@ export class StorageService {
 
       const remoteProjects = (data || []).map(p => ({ ...p, id: p.id_random || p.id }));
       this.saveLocalProjects(remoteProjects);
-
-      // Cache the result
       this.projectsCache = { data: remoteProjects, timestamp: Date.now() };
-
       return remoteProjects;
     } catch (err: any) {
       if (err.message?.includes('fetch') || err.message?.includes('timeout')) {
@@ -182,10 +178,7 @@ export class StorageService {
       if (error) throw error;
       const synced = { ...data, id: data.id_random || data.id };
       this.saveLocalProjects([synced, ...localProjects]);
-
-      // Invalidate cache when creating project
       this.projectsCache = null;
-
       return synced;
     } catch (err: any) {
       this.saveLocalProjects([newProject, ...localProjects]);
@@ -229,34 +222,23 @@ export class StorageService {
       if (!session) return;
 
       const monthId = strategy.monthId || new Date().toISOString().slice(0, 7);
-      const { data: existing, status } = await supabase
-        .from('strategies')
-        .select('id')
-        .eq('project_id', projectId)
-        .eq('month_id', monthId)
-        .maybeSingle();
+
+      // ✅ ATOMIC UPSERT: Prevents 409 Conflicts during concurrent batch saves
+      const { error, status } = await supabase.from('strategies')
+        .upsert({
+          project_id: projectId,
+          month_id: monthId,
+          data: strategy,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'project_id,month_id'
+        });
 
       if (status >= 500 || status === 429) {
         this.triggerCircuitBreaker();
         return;
       }
-
-      if (existing) {
-        const { error, status: patchStatus } = await supabase
-          .from('strategies')
-          .update({ data: strategy, updated_at: new Date().toISOString() })
-          .eq('id', existing.id);
-
-        if (patchStatus >= 500 || patchStatus === 429) this.triggerCircuitBreaker();
-        if (error) throw error;
-      } else {
-        const { error, status: postStatus } = await supabase
-          .from('strategies')
-          .insert({ project_id: projectId, month_id: monthId, data: strategy });
-
-        if (postStatus >= 500 || postStatus === 429) this.triggerCircuitBreaker();
-        if (error) throw error;
-      }
+      if (error) throw error;
     } catch (err: any) {
       if (err.message?.includes('fetch') || err.message?.includes('timeout')) {
         this.triggerCircuitBreaker();
@@ -304,8 +286,6 @@ export class StorageService {
     const projects = this.getLocalProjects();
     this.saveLocalProjects(projects.filter(p => p.id !== projectId));
     localStorage.removeItem(`${STORAGE_KEYS.STRATEGIES}${projectId}`);
-
-    // Invalidate cache when deleting project
     this.projectsCache = null;
 
     if (this.isCircuitOpen() || projectId.startsWith('local_')) return;
@@ -315,7 +295,6 @@ export class StorageService {
   }
 
   async getAssets(projectId: string): Promise<any[]> {
-    // Request deduplication
     if (this.assetRequestQueue.has(projectId)) {
       return this.assetRequestQueue.get(projectId)!;
     }
@@ -327,29 +306,22 @@ export class StorageService {
       const result = await requestPromise;
       return result;
     } finally {
-      // Clean up queue after 100ms
       setTimeout(() => this.assetRequestQueue.delete(projectId), 100);
     }
   }
 
   private async _fetchAssetsInternal(projectId: string): Promise<any[]> {
-    console.log(`📂 Loading assets for project ${projectId}...`);
     let cloudAssets: any[] = [];
     let localAssets: any[] = [];
 
-    // Load from IndexedDB and manage persistent blob URLs
     try {
       const vaulted = await vault.getAllForProject(projectId);
-      console.log(`💾 Found ${vaulted.length} assets in IndexedDB`);
-
       localAssets = vaulted.map(a => {
         let blobUrl = this.blobUrlCache.get(a.id);
         if (!blobUrl) {
           blobUrl = URL.createObjectURL(a.data);
           this.blobUrlCache.set(a.id, blobUrl);
-          console.log(`🔗 Created blob URL for ${a.id}: ${blobUrl}`);
         }
-
         return {
           url: blobUrl,
           day_index: a.dayIndex,
@@ -362,12 +334,8 @@ export class StorageService {
       });
     } catch (err) { }
 
-    if (this.isCircuitOpen()) {
-      console.log(`⚠️ Circuit breaker open - returning ${localAssets.length} local assets only`);
-      return localAssets;
-    }
+    if (this.isCircuitOpen()) return localAssets;
 
-    // Load from cloud
     try {
       const { data, status } = await supabase
         .from('assets')
@@ -376,7 +344,6 @@ export class StorageService {
 
       if (status < 500) {
         cloudAssets = (data || []).map(a => ({ ...a, source: 'cloud' }));
-        console.log(`☁️ Found ${cloudAssets.length} assets in cloud`);
       } else {
         this.triggerCircuitBreaker();
       }
@@ -386,7 +353,6 @@ export class StorageService {
       }
     }
 
-    // Merge strategy: Prefer cloud URLs, fall back to local blob URLs
     const mergedAssets: any[] = [];
     const seenKeys = new Set<string>();
 
@@ -400,11 +366,9 @@ export class StorageService {
       const key = `${localAsset.day_index}_${localAsset.type}_${localAsset.metadata?.promptIndex || 0}_${localAsset.metadata?.version || 1}`;
       if (!seenKeys.has(key)) {
         mergedAssets.push(localAsset);
-        console.log(`📍 Using local-only asset: ${key}`);
       }
     });
 
-    console.log(`✅ Loaded ${mergedAssets.length} total assets`);
     return mergedAssets;
   }
 
@@ -413,29 +377,36 @@ export class StorageService {
     try {
       await vault.save({ id: assetId, projectId, dayIndex, type, data: blob, metadata });
     } catch (err) { }
+
     if (this.isLocalOnly() || projectId.startsWith('local_')) {
       return URL.createObjectURL(blob);
     }
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const user_id = session?.user?.id;
       if (!user_id) throw new Error("UNAUTHENTICATED");
+
       const fileExt = type === 'image' ? 'png' : 'mp4';
       const fileName = `${projectId}/${type}_day${dayIndex}_${Date.now()}.${fileExt}`;
       const file = new File([blob], fileName, { type: type === 'image' ? 'image/png' : 'video/mp4' });
+
       const { data, error: uploadError } = await supabase.storage
         .from('Assets')
         .upload(fileName, file, { contentType: file.type, cacheControl: '3600', upsert: true });
+
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('Assets').getPublicUrl(data.path);
+
       const { error: dbError } = await supabase.from('assets').insert({
-        user_id: user_id,
+        user_id,
         project_id: projectId,
         day_index: dayIndex,
         type,
         url: publicUrl,
         metadata
       });
+
       if (dbError) throw dbError;
       return publicUrl;
     } catch (err: any) {
@@ -462,6 +433,7 @@ export class StorageService {
         .eq('project_id', projectId)
         .not('archived_at', 'is', null)
         .order('archived_at', { ascending: false });
+
       if (status >= 500 || status === 429) {
         this.triggerCircuitBreaker();
         return [];
@@ -479,7 +451,6 @@ export class StorageService {
     const archivedAt = new Date().toISOString();
     const monthId = strategy.monthId || archivedAt.slice(0, 7);
 
-    // ✅ STRIP IMAGES/VIDEOS FOR ARCHIVE (Text-only memory)
     const leanCalendar = strategy.calendar.map(day => ({
       ...day,
       generatedImages: [],
@@ -494,11 +465,13 @@ export class StorageService {
       localStorage.setItem(`${STORAGE_KEYS.STRATEGIES}${projectId}_archive_${monthId}`, JSON.stringify(archivedStrategy));
       return;
     }
+
     try {
       const { status } = await supabase.from('strategies')
         .update({ archived_at: archivedAt, data: archivedStrategy })
         .eq('project_id', projectId)
         .eq('month_id', monthId);
+
       if (status >= 500 || status === 429) {
         this.triggerCircuitBreaker();
         throw new Error("Vault Timeout");
@@ -510,7 +483,6 @@ export class StorageService {
   }
 
   cleanupBlobUrls() {
-    console.log(`🧹 Cleaning up ${this.blobUrlCache.size} cached blob URLs`);
     this.blobUrlCache.forEach((url) => {
       URL.revokeObjectURL(url);
     });
