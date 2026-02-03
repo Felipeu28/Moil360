@@ -45,6 +45,9 @@ export interface BrandDNA {
   toneVoice: string;
 }
 
+export type StrategicMission = 'Growth' | 'Sales' | 'Authority' | 'Community';
+export type VisualSignature = 'Minimalist' | 'Bold' | 'Corporate' | 'Neon' | 'Organic';
+
 export interface BusinessInfo {
   name: string;
   industry: string;
@@ -54,6 +57,9 @@ export interface BusinessInfo {
   existingResearch?: string;
   startDate?: string;
   previousContent?: string;
+  monthlyGuidance?: string;
+  strategicMission?: StrategicMission;
+  visualSignature?: VisualSignature;
   brandDNA?: BrandDNA;
 }
 
@@ -124,6 +130,8 @@ export interface StrategyResult {
   summary: string;
   context: MarketContext;
   quality_score: number;
+  strategicMission?: StrategicMission;
+  visualSignature?: VisualSignature;
   visualLayers?: Record<string, OverlaySettings[]>;
 }
 
