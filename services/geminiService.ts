@@ -270,7 +270,11 @@ function validateVideoDistribution(calendar: ContentDay[]): ContentDay[] {
   return calendar;
 }
 
-export async function generateContentStrategy(business: BusinessInfo, previousStrategy?: StrategyResult): Promise<StrategyResult> {
+export async function generateContentStrategy(
+  business: BusinessInfo,
+  previousStrategy?: StrategyResult,
+  onProgress?: (partial: Partial<StrategyResult>) => void
+): Promise<StrategyResult> {
   const baseDate = business.startDate || new Date().toISOString().split('T')[0];
   const year = new Date(baseDate).getFullYear();
   const brandContext = business.brandDNA ? `BRAND IDENTITY: Colors ${business.brandDNA.primaryColor}, Tone: ${business.brandDNA.toneVoice}. Negative Keywords: ${business.brandDNA.negativeKeywords.join(', ')}.` : "";
@@ -437,6 +441,24 @@ ${type}:
 
     if (batchJson.calendar && Array.isArray(batchJson.calendar)) {
       fullCalendar.push(...batchJson.calendar);
+
+      // ✅ TRIGGER PROGRESS CALLBACK (Incremental Autosave)
+      if (onProgress) {
+        onProgress({
+          calendar: [...fullCalendar],
+          monthId: new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toISOString().slice(0, 7),
+          summary: strategySummary || "Neural synthesis in progress...",
+          quality_score: qualityScore || 0,
+          context: strategyContext || {
+            today: baseDate,
+            endDate: baseDate,
+            quarter: Math.ceil((new Date(baseDate).getMonth() + 1) / 3),
+            seasonalFocus: "Recursive Analysis",
+            urgencyAngle: "Market Growth",
+            industryTrends: []
+          }
+        });
+      }
     }
   }
 
