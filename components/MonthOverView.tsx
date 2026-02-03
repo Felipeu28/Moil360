@@ -80,9 +80,9 @@ export const MonthOverView: React.FC<Props> = ({ strategy, lang, onKickoff, onCl
                                 <button
                                     key={type}
                                     onClick={() => setSentiment(type)}
-                                    className={`p-4 rounded-2xl border-2 transition-all text-center flex flex-col items-center gap-2 ${sentiment === type ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/5 bg-white/5'}`}
+                                    className={`p-4 rounded-2xl border-2 transition-all text-center flex flex-col items-center gap-2 ${sentiment === type ? 'border-indigo-500 bg-indigo-500/10 text-white' : 'border-white/5 bg-white/5 text-slate-400'}`}
                                 >
-                                    <span className="text-[8px] font-black uppercase tracking-widest">{t[`sentiment_${type}` as keyof typeof t]}</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{t[`sentiment_${type}` as keyof typeof t]}</span>
                                 </button>
                             ))}
                         </div>
@@ -98,9 +98,9 @@ export const MonthOverView: React.FC<Props> = ({ strategy, lang, onKickoff, onCl
                                 <button
                                     key={m}
                                     onClick={() => setMission(m)}
-                                    className={`p-3 rounded-2xl border-2 transition-all text-center ${mission === m ? 'border-rose-500 bg-rose-500/10' : 'border-white/5 bg-white/5'}`}
+                                    className={`p-3 rounded-2xl border-2 transition-all text-center ${mission === m ? 'border-rose-500 bg-rose-500/10 text-white' : 'border-white/5 bg-white/5 text-slate-400'}`}
                                 >
-                                    <span className="text-[8px] font-black uppercase tracking-widest">{t[`mission_${m.toLowerCase()}` as keyof typeof t]}</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{t[`mission_${m.toLowerCase()}` as keyof typeof t]}</span>
                                 </button>
                             ))}
                         </div>
