@@ -1067,10 +1067,15 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: model,
-          prompt: videoPrompt,
-          image: {
-            bytesBase64Encoded: base64Data
+          instances: [{
+            prompt: videoPrompt,
+            image: {
+              bytesBase64Encoded: base64Data,
+              mimeType: mimeType
+            }
+          }],
+          parameters: {
+            aspectRatio: '9:16'
           }
         })
       }
