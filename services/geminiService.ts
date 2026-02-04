@@ -652,7 +652,7 @@ export async function generateAIImage(
 
   console.log('🎨 Using Gemini image engine');
 
-  const response: GenerateContentResponse = await retryableCall(async () => {
+  const response = await retryableCall(async () => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     const parts: any[] = [];
 
@@ -727,17 +727,41 @@ CRITICAL REQUIREMENTS:
     }
 
     console.log(`📸 Gemini API call with aspectRatio: ${aspectRatio}`);
-    // Use Imagen 3 for high-quality image generation
-    return ai.models.generateContent({
-      model: 'imagen-3.0-generate-001',
-      contents: { parts },
-      config: { imageConfig: { aspectRatio } }
-    });
+
+    // ✅ FIX: Use specialized generateImages method for Imagen 3
+    if (existingBase64 && feedback) {
+      // Fallback for editing (implementation pending specialized editImage support validation)
+      console.warn("Editing with Imagen 3 requires editImage API. Falling back to generateImages with prompt only.");
+      const editPrompt = parts.find(p => p.text)?.text || prompt;
+      const response = await ai.models.generateImages({
+        model: 'imagen-3.0-generate-001',
+        prompt: editPrompt,
+        config: {
+          numberOfImages: 1,
+          aspectRatio: aspectRatio
+        }
+      });
+      const data = response.generatedImages?.[0]?.image?.imageBytes;
+      if (!data) throw new Error("Rendering failed.");
+      return `data:image/png;base64,${data}`;
+    } else {
+      // Standard Generation
+      const promptText = parts[0].text;
+      const response = await ai.models.generateImages({
+        model: 'imagen-3.0-generate-001',
+        prompt: promptText,
+        config: {
+          numberOfImages: 1,
+          aspectRatio: aspectRatio
+        }
+      });
+      const data = response.generatedImages?.[0]?.image?.imageBytes;
+      if (!data) throw new Error("Rendering failed.");
+      return `data:image/png;base64,${data}`;
+    }
   });
 
-  const data = response.candidates?.[0]?.content?.parts.find(p => p.inlineData)?.inlineData?.data;
-  if (!data) throw new Error("Rendering failed.");
-  return `data:image/png;base64,${data}`;
+  return response;
 }
 
 export async function generateAIVideo(
