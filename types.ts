@@ -81,6 +81,11 @@ export interface VisualLayer {
   shadowBlur: number;
   strokeColor: string;
   strokeWidth: number;
+  lineHeight?: number; // 0.8 to 2
+  letterSpacing?: number; // -10 to 50
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  bgStyle: 'none' | 'glass' | 'solid';
+  bgColor?: string;
   imageUrl?: string; // For image layers
   width?: number; // For image layers
   height?: number; // For image layers
