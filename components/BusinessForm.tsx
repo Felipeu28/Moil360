@@ -28,8 +28,36 @@ export const BusinessForm: React.FC<Props> = ({ onStart, onRemoteSync, onImport,
     existingResearch: '',
     startDate: suggestedStartDate || new Date().toISOString().split('T')[0],
     previousContent: existingHistory || '',
-    brandDNA: existingBrand
+    brandDNA: existingBrand || {
+      primaryColor: '#000000',
+      secondaryColor: '#FFFFFF',
+      accentColor: '#6366F1',
+      logoDescription: '',
+      toneVoice: '',
+      negativeKeywords: [],
+      logoAssets: { primaryUrl: '' }
+    }
   });
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'primary' | 'light' | 'dark') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setInfo(prev => ({
+          ...prev,
+          brandDNA: {
+            ...prev.brandDNA!,
+            logoAssets: {
+              ...(prev.brandDNA?.logoAssets || { primaryUrl: '' }),
+              [type === 'primary' ? 'primaryUrl' : type === 'light' ? 'lightUrl' : 'darkUrl']: reader.result as string
+            }
+          }
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const t = translations[lang] || translations['EN'];
 
@@ -149,6 +177,58 @@ export const BusinessForm: React.FC<Props> = ({ onStart, onRemoteSync, onImport,
                     <span className="text-[9px] font-black uppercase tracking-widest">{t[`sig_${sig.toLowerCase()}` as keyof typeof t]}</span>
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-3 ml-2">
+              <Palette className="w-4 h-4 text-violet-500" /> {t.identity_label || 'Brand Identity'}
+            </label>
+            <div className="bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] p-8 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <span className="text-[9px] font-black uppercase text-slate-400 ml-1">Primary Color</span>
+                  <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                    <input type="color" value={info.brandDNA?.primaryColor} onChange={e => setInfo({ ...info, brandDNA: { ...info.brandDNA!, primaryColor: e.target.value } })} className="w-10 h-10 rounded-xl cursor-pointer border-none bg-transparent" />
+                    <span className="text-xs font-bold text-slate-600">{info.brandDNA?.primaryColor}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <span className="text-[9px] font-black uppercase text-slate-400 ml-1">Secondary Color</span>
+                  <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                    <input type="color" value={info.brandDNA?.secondaryColor} onChange={e => setInfo({ ...info, brandDNA: { ...info.brandDNA!, secondaryColor: e.target.value } })} className="w-10 h-10 rounded-xl cursor-pointer border-none bg-transparent" />
+                    <span className="text-xs font-bold text-slate-600">{info.brandDNA?.secondaryColor}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <span className="text-[9px] font-black uppercase text-slate-400 ml-1">Accent Color</span>
+                  <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+                    <input type="color" value={info.brandDNA?.accentColor || '#6366F1'} onChange={e => setInfo({ ...info, brandDNA: { ...info.brandDNA!, accentColor: e.target.value } })} className="w-10 h-10 rounded-xl cursor-pointer border-none bg-transparent" />
+                    <span className="text-xs font-bold text-slate-600">{info.brandDNA?.accentColor}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <span className="text-[9px] font-black uppercase text-slate-400 ml-1">Logo Assets</span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {['primary', 'light', 'dark'].map((type) => (
+                    <div key={type} className="relative group">
+                      <label className="flex flex-col items-center justify-center p-6 bg-white border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all h-32">
+                        {info.brandDNA?.logoAssets?.[(type + 'Url') as keyof typeof info.brandDNA.logoAssets] ? (
+                          <img src={info.brandDNA.logoAssets[(type + 'Url') as keyof typeof info.brandDNA.logoAssets]} className="h-full object-contain" alt={type} />
+                        ) : (
+                          <>
+                            <UploadCloud className="w-6 h-6 text-slate-400 group-hover:text-indigo-500 mb-2" />
+                            <span className="text-[8px] font-black uppercase text-slate-400 group-hover:text-indigo-600">{type} Logo</span>
+                          </>
+                        )}
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleLogoUpload(e, type as any)} />
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
