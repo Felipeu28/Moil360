@@ -239,8 +239,12 @@ const App: React.FC = () => {
       nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
       const nextMonthLabel = nextMonthDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
+      // Clean business name (remove previous month suffix if it exists)
+      const baseName = activeProject.name.split(' (')[0];
+      const newProjectName = `${baseName} (${nextMonthLabel})`;
+
       const newProject = await storage.createProject(
-        `${activeProject.name} (${nextMonthLabel})`,
+        newProjectName,
         activeProject.industry,
         {
           ...activeProject.business_info,
@@ -249,6 +253,7 @@ const App: React.FC = () => {
       );
 
       setActiveProject(newProject);
+      setSelectedDay(null); // Reset selected day until new strategy starts arriving
 
       const onProgress = async (partial: Partial<StrategyResult>) => {
         const fullPartial = partial as StrategyResult;
