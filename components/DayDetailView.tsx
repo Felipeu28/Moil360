@@ -173,22 +173,46 @@ export const DayDetailView: React.FC<Props> = ({
   // Safe indexing for day switching
   const activeAsset = galleryAssets[assetIndex] || galleryAssets[galleryAssets.length - 1];
 
-  const getDefaultLayers = useCallback((): OverlaySettings[] => [
-    {
-      type: 'text', id: 'layer-hook',
-      text: day.hook, font: FONTS[0].family, color: COLORS[0].value, size: 20, isBold: true, pos: { x: 50, y: 35 },
-      rotation: 0, scale: 1, opacity: 1,
-      glassStyle: 'none', bgStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 15, strokeColor: '#000000', strokeWidth: 0,
-      lineHeight: 1.1, letterSpacing: 0, textTransform: 'uppercase'
-    },
-    {
-      type: 'text', id: 'layer-body',
-      text: '', font: FONTS[2].family, color: COLORS[0].value, size: 16, isBold: false, pos: { x: 50, y: 65 },
-      rotation: 0, scale: 1, opacity: 1,
-      glassStyle: 'none', bgStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0,
-      lineHeight: 1.1, letterSpacing: 0, textTransform: 'none'
+  const getDefaultLayers = useCallback((): OverlaySettings[] => {
+    const layers: OverlaySettings[] = [
+      {
+        type: 'text', id: 'layer-hook',
+        text: day.hook, font: FONTS[0].family, color: COLORS[0].value, size: 20, isBold: true, pos: { x: 50, y: 35 },
+        rotation: 0, scale: 1, opacity: 1,
+        glassStyle: 'none', bgStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 15, strokeColor: '#000000', strokeWidth: 0,
+        lineHeight: 1.1, letterSpacing: 0, textTransform: 'uppercase'
+      },
+      {
+        type: 'text', id: 'layer-body',
+        text: '', font: FONTS[2].family, color: COLORS[0].value, size: 16, isBold: false, pos: { x: 50, y: 65 },
+        rotation: 0, scale: 1, opacity: 1,
+        glassStyle: 'none', bgStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0,
+        lineHeight: 1.1, letterSpacing: 0, textTransform: 'none'
+      }
+    ];
+
+    if (brandDNA?.logoAssets?.primaryUrl) {
+      layers.push({
+        type: 'image',
+        id: `logo-auto-${Date.now()}`,
+        imageUrl: brandDNA.logoAssets.primaryUrl,
+        pos: { x: 88, y: 12 }, // Top right smart placement
+        size: 12,
+        rotation: 0,
+        scale: 1,
+        opacity: 1,
+        glassStyle: 'none',
+        bgStyle: 'none',
+        textAlign: 'center',
+        hasShadow: false,
+        shadowBlur: 0,
+        strokeColor: '#000000',
+        strokeWidth: 0
+      });
     }
-  ], [day.hook]);
+
+    return layers;
+  }, [day.hook, brandDNA]);
 
   const activeVisualSettings = useMemo(() => {
     if (!activeAsset) return { layers: getDefaultLayers(), visualMode: 'none' };
@@ -522,7 +546,7 @@ export const DayDetailView: React.FC<Props> = ({
       setLoadingImg(true);
       try {
         console.log(`🎨 Generating image with aspect ratio: ${aspectRatio}`);
-        const url = await generateAIImage(day.image_prompts[0], undefined, undefined, imageEngine, aspectRatio);
+        const url = await generateAIImage(day.image_prompts[0], undefined, undefined, imageEngine, aspectRatio, brandDNA);
         onImageGenerated({ dayIndex: day.day, promptIndex: 0, url, modelId: imageEngine, createdAt: Date.now() });
       } catch (err: any) { alert(err.message); } finally { setLoadingImg(false); }
       return;
@@ -532,7 +556,7 @@ export const DayDetailView: React.FC<Props> = ({
     try {
       const existingBase64 = currentDayImages.length > 0 ? currentDayImages[currentDayImages.length - 1].url : undefined;
       console.log(`🎨 Regenerating image with aspect ratio: ${aspectRatio}`);
-      const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existingBase64, imageEngine, aspectRatio);
+      const url = await generateAIImage(day.image_prompts[0], imgEditFeedback, existingBase64, imageEngine, aspectRatio, brandDNA);
       onImageGenerated({ dayIndex: day.day, promptIndex: nextPromptIndex, url, modelId: imageEngine, createdAt: Date.now() });
       setShowImgEditPanel(false); setImgEditFeedback('');
     } catch (err: any) { alert(err.message); } finally { setLoadingImg(false); }
@@ -1150,6 +1174,23 @@ export const DayDetailView: React.FC<Props> = ({
                       })}
                     </div>
                   )}
+                  {/* Vertical Side-Slider (IG Style) */}
+                  {showOverlayDesigner && currentLayers[activeLayerIndex]?.type === 'text' && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 bg-black/40 backdrop-blur-xl p-3 rounded-full border border-white/20 shadow-2xl z-[150] animate-in fade-in slide-in-from-right-4 duration-300">
+                      <div className="h-48 w-6 relative bg-white/10 rounded-full overflow-hidden">
+                        <input
+                          type="range"
+                          min="5"
+                          max="100"
+                          value={currentLayers[activeLayerIndex]?.size || 25}
+                          onChange={e => updateLayer(activeLayerIndex, { size: parseInt(e.target.value) })}
+                          className="absolute h-6 w-48 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 bg-transparent flex items-center appearance-none accent-white cursor-pointer"
+                        />
+                      </div>
+                      <span className="text-[10px] font-black text-white">{currentLayers[activeLayerIndex]?.size || 25}</span>
+                    </div>
+                  )}
+
                   <div className="absolute bottom-10 right-10 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all">
                     <button onClick={handleDownload} title="Download version" className="p-3.5 bg-white/95 backdrop-blur-xl rounded-[1.2rem] shadow-2xl hover:scale-110 active:scale-95 transition-transform"><Download className="w-5 h-5 text-slate-900" /></button>
                   </div>
