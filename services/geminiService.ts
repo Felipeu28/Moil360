@@ -321,7 +321,7 @@ export async function generateContentStrategy(
   const queryGenResponse = await retryableCall(() => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     return ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: `
         TASK: Generate 6 ultra-targeted search queries for market research.
         
@@ -350,7 +350,7 @@ export async function generateContentStrategy(
   const research: GenerateContentResponse = await retryableCall(() => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     return ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: `
         COMPREHENSIVE MARKET INTELLIGENCE BRIEFING
         
@@ -419,7 +419,7 @@ ${type}:
       }[activeMission];
 
       return ai.models.generateContent({
-        model: "gemini-1.5-pro-preview-0514",
+        model: "gemini-1.5-pro",
         contents: `
           BUSINESS CONTEXT: ${JSON.stringify(business)}
           ${brandContext}
@@ -589,7 +589,7 @@ export async function regenerateDay(business: BusinessInfo, currentDay: ContentD
   const response: GenerateContentResponse = await retryableCall(() => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     return ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: `REGENERATE DAY ${currentDay.day}. FEEDBACK: "${feedback}". ${lengthInstruction} Maintain "Juan-Style". Ensure image_prompts LITERALLY show the topic with specific, concrete visual elements. ${JUAN_STYLE_PROMPT}`,
       config: {
         responseMimeType: "application/json",
@@ -605,7 +605,7 @@ export async function translateContent(hook: string, caption: string, targetLang
   const response: GenerateContentResponse = await retryableCall(() => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
     return ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: `Transcreate to ${targetLanguage}. MAINTAIN AGGRESSIVE WHITE SPACE. ${JUAN_STYLE_PROMPT} HOOK: "${hook}" CAPTION: "${caption}"`,
       config: {
         responseMimeType: "application/json",
@@ -716,7 +716,7 @@ CRITICAL REQUIREMENTS:
 
     console.log(`📸 Gemini API call with aspectRatio: ${aspectRatio}`);
     return ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-1.5-flash',
       contents: { parts },
       config: { imageConfig: { aspectRatio } }
     });
