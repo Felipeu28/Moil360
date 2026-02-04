@@ -460,7 +460,12 @@ export class StorageService {
       visualLayers: undefined
     }));
 
-    const archivedStrategy = { ...strategy, calendar: leanCalendar, archivedAt };
+    const archivedStrategy = {
+      ...strategy,
+      calendar: leanCalendar,
+      archivedAt,
+      visualLayers: undefined // Strip visual layers for archival
+    };
     if (this.isCircuitOpen() || projectId.startsWith('local_')) {
       localStorage.setItem(`${STORAGE_KEYS.STRATEGIES}${projectId}_archive_${monthId}`, JSON.stringify(archivedStrategy));
       return;
