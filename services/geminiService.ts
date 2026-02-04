@@ -1,99 +1,3 @@
-
-CONTENT 360
-/
-please fix my geminiservice.tsx it keeps failing and we get this error message wg=hen trying to create an aimage: 
-
-moil360.vercel.app says: 
-
-{"error":{"code":404,"message":"models/gemini-2.0-flash-exp is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.","status":"NOT_FOUND"}}
-
-9:44 PM
-I'll help you fix the image generation error. The issue is that gemini-2.0-flash-exp isn't available or isn't supported for image generation in the v1beta API. Let me update your geminiService.ts with the correct model.
-
-Here's the fix:
-
-
-Fix image generation model - use correct Gemini model for image generation
-Let me check the correct path:
-
-
-Check project structure to find geminiService.ts
-Perfect! The file is at the project root. Let me fix it:
-
-
-Fix image generation model - use correct Gemini model for image generation
-Let me check what's actually in the file:
-
-
-View the image generation section to find the exact code
-Let me find the image generation section:
-
-
-Find the generateAIImage function
-Perfect! Now I can fix it. The issue is on lines 731-751:
-
-
-Fix image generation - use correct Gemini model (gemini-2.5-flash-image)
-The encoding is causing issues. Let me try a different approach - I'll create the corrected file:
-
-
-Check the exact encoding of the problematic lines
-The file has UTF-8 emoji characters. Let me create a clean replacement using line numbers:
-
-
-Ran 2 commands
-Perfect! Now let's verify the fix worked:
-
-
-Verify the image generation fix
-
-Verify the image generation fix
-Done
-Excellent! Now let's also update the strategy generation models to use the correct Gemini 2.0 Flash model:
-
-
-Find all instances of gemini-2.0-flash to update them
-Good! The gemini-2.0-flash model is correct for text generation. The issue was specifically with gemini-2.0-flash-exp for image generation. Let me create a summary document explaining the fix:
-
-
-Created a file, read a file
-✅ Image Generation Fixed!
-The error has been resolved. Here's what was wrong and what I fixed:
-
-The Problem
-Your code was trying to use gemini-2.0-flash-exp for image generation, but that model doesn't exist or isn't supported for the image generation API.
-
-The Fix
-Changed the model to the correct one:
-
-❌ Before: gemini-2.0-flash-exp
-✅ After: gemini-2.5-flash-image
-This is Google's official model for native image generation with proper support for aspect ratios (9:16, 16:9, 1:1).
-
-What Changed
-I updated /mnt/project/geminiService__5_.ts lines 729-742 to:
-
-Use the correct model name
-Remove unnecessary responseModalities config
-Clean up debug code
-Next Steps
-Commit and deploy the updated geminiService__5_.ts to Vercel
-Test image generation - all three aspect ratios should now work
-Qwen fallback is still functional if Gemini fails
-The fix document I created has all the technical details for your reference. Your image generation should work perfectly now! 🎨
-
-Image generation fix
-Document · MD 
-
-
-
-
-
-
-Claude is AI and can make mistakes. Please double-check responses.
-Geminiservice 5 · TS
-Copy
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import {
   BusinessInfo, ContentDay,
@@ -321,7 +225,7 @@ function validateVideoDistribution(calendar: ContentDay[]): ContentDay[] {
 
   // âœ… VALIDATION: Ensure minimum 5 video days
   if (videoDays.length < 5) {
-    console.warn(`âš ï¸ Only ${videoDays.length} video days detected. Adding more...`);
+    console.warn(`âš ï¸ Only ${videoDays.length} video days detected. Adding more...`);
 
     // Strategy: Add video to high-impact days that don't have it
     // Priority order: Promotional > Engagement > Educational
@@ -619,7 +523,7 @@ ${type}:
 
   // âœ… VALIDATE: Ensure we have all 30 days
   if (fullCalendar.length < 30) {
-    console.warn(`âš ï¸ Strategy truncated to ${fullCalendar.length} days. Filling gaps...`);
+    console.warn(`âš ï¸ Strategy truncated to ${fullCalendar.length} days. Filling gaps...`);
   }
 
   // âœ… WEEK 1: Validate and fix video distribution
@@ -1000,7 +904,7 @@ export async function generateAIVideo(
           console.log(`âœ… Compressed to ${(finalBlob.size / 1024 / 1024).toFixed(2)}MB`);
           mimeType = 'image/jpeg';
         } catch (compressionErr) {
-          console.warn('âš ï¸ Compression failed, using original:', compressionErr);
+          console.warn('âš ï¸ Compression failed, using original:', compressionErr);
           finalBlob = blob;
         }
       }
@@ -1009,7 +913,7 @@ export async function generateAIVideo(
       const bytes = new Uint8Array(arrayBuffer);
 
       if (!finalBlob.type || finalBlob.type === '' || finalBlob.type === 'application/octet-stream') {
-        console.warn('âš ï¸ Blob has no type, detecting from magic bytes...');
+        console.warn('âš ï¸ Blob has no type, detecting from magic bytes...');
 
         if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
           mimeType = 'image/png';
@@ -1055,13 +959,13 @@ export async function generateAIVideo(
   }
 
   if (!mimeType || mimeType === '') {
-    console.warn('âš ï¸ Missing mimeType, defaulting to image/png');
+    console.warn('âš ï¸ Missing mimeType, defaulting to image/png');
     mimeType = 'image/png';
   }
 
   const validMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
   if (!validMimeTypes.includes(mimeType.toLowerCase())) {
-    console.warn(`âš ï¸ Invalid mimeType '${mimeType}', converting to image/png`);
+    console.warn(`âš ï¸ Invalid mimeType '${mimeType}', converting to image/png`);
     mimeType = 'image/png';
   }
 
@@ -1095,7 +999,7 @@ export async function generateAIVideo(
       throw new Error(`Veo model '${model}' not available. Status: ${modelsResponse.status}. Your API key may not have access to video generation.`);
     }
   } catch (checkErr: any) {
-    console.error('âš ï¸ Model availability check failed:', checkErr.message);
+    console.error('âš ï¸ Model availability check failed:', checkErr.message);
   }
 
   const videoPrompt = `
@@ -1234,7 +1138,7 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
     );
 
     if (!statusResponse.ok) {
-      console.error('âš ï¸ Status check failed:', statusResponse.status);
+      console.error('âš ï¸ Status check failed:', statusResponse.status);
       pollCount++;
       continue;
     }
