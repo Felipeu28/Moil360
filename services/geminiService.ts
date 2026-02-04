@@ -752,12 +752,12 @@ CRITICAL REQUIREMENTS:
 
 export async function generateAIVideo(
   imageUri: string,
-  topic: string,
-  strategy: string,
-  contentType?: string,
+  day: ContentDay,
   brandDNA?: BrandDNA,
   engine: 'gemini' | 'qwen' = 'gemini'
 ): Promise<{ url: string, uri: string, blob: Blob }> {
+
+  const { topic, platform_strategy: strategy, content_type: contentType } = day;
 
   if (engine === 'qwen') {
     console.log('🔄 Routing to Qwen video engine');
@@ -1007,50 +1007,36 @@ export async function generateAIVideo(
   const videoPrompt = `
 STRATEGIC ANIMATED VIDEO BRIEF
 
-Core Topic: ${topic}
-Content Type: ${contentType || 'Professional'}
-Platform Distribution: ${strategy}
-Target Duration: ${getDuration(contentType || 'Professional')}
+CORE CONTEXT:
+- Topic: ${topic}
+- Hook: ${day.hook}
+- Storyboard Narrative (Caption): ${day.full_caption}
 
-ANIMATION STRATEGY (Content-Type Specific):
-${getMotionStyle(contentType || 'Professional')}
+TECHNICAL SPECS:
+- Content Type: ${contentType || 'Professional'}
+- Platform Distribution: ${strategy}
+- Target Duration: ${getDuration(contentType || 'Professional')}
 
-CAMERA & MOVEMENT DIRECTION:
-- Platform Strategy: ${getCameraStrategy(strategy)}
-- Motion Pacing: ${getPacing(contentType || 'Professional')}
-- Camera Behavior: ${contentType === 'Promotional' ? 'Dynamic, energetic, attention-commanding' : contentType === 'Educational' ? 'Methodical, clear, purposeful reveals' : 'Smooth, professional, engaging'}
-- Focus Strategy: Emphasize key visual elements from "${topic}"
-
-PROFESSIONAL PRODUCTION STANDARDS:
-- Quality: 4K resolution, cinematic color grading
-- Motion: Buttery smooth (no shakiness), professional stabilization
-- Lighting: Enhance natural lighting, maintain visual clarity
-- Depth: Subtle depth-of-field where it adds impact
-- Framing: 9:16 vertical optimization for mobile-first platforms
-- Transitions: Natural, seamless (avoid jarring cuts)
-
-BRAND & AUDIENCE ALIGNMENT:
-- Brand Tone: ${brandDNA?.toneVoice || 'Professional, trustworthy, engaging'}
-- Energy Level: ${contentType === 'Promotional' ? 'High energy, exciting' : contentType === 'Educational' ? 'Measured, clear' : contentType === 'Testimonial' ? 'Warm, intimate' : 'Professional, confident'}
-- Visual Personality: Match brand identity naturally
-- Emotional Goal: ${contentType === 'Educational' ? 'Inform and empower' : contentType === 'Promotional' ? 'Excite and motivate action' : contentType === 'Testimonial' ? 'Build trust and connection' : contentType === 'Engagement' ? 'Create relatability' : 'Engage professionally'}
+ANIMATION STRATEGY (Voice & Purpose Alignment):
+- Brand Voice/Tone: ${brandDNA?.toneVoice || 'Professional'}
+- Motion Instruction: ${getMotionStyle(contentType || 'Professional')}
 
 PURPOSE-DRIVEN CINEMATOGRAPHY:
 ${contentType === 'Educational' ? '- Reveal learning points sequentially\n- Pause on key details\n- Guide viewer attention methodically' : ''}
 ${contentType === 'Promotional' ? '- Hook in first second\n- Build excitement rapidly\n- Create FOMO energy' : ''}
 ${contentType === 'Testimonial' ? '- Zoom slowly to create intimacy\n- Focus on authentic human moments\n- Build emotional resonance' : ''}
 ${contentType === 'Engagement' ? '- Natural, relatable movement\n- Follow human subjects authentically\n- Create connection through motion' : ''}
-${contentType === 'Behind the Scenes' ? '- Documentary-style discovery\n- Authentic, unpolished feel\n- Reveal the process naturally' : ''}
+- Platform Strategy: ${getCameraStrategy(strategy)}
+- Motion Pacing: ${getPacing(contentType || 'Professional')}
 
-AVOID (Critical):
-- Generic stock video motion patterns
-- Overused zoom/pan transitions
+BRINGING THE CAPTION TO LIFE (Action):
+"Treat the following caption as a visual storyboard. The motion should mirror the 'voice' and progression of this message: ${day.full_caption}"
+
+AVOID:
 - Disorienting or nauseating camera work
-- Energy mismatched to content purpose
+- Energy mismatched to brand tone
 - Excessive or distracting effects
-- Motion that obscures the message
-
-GOAL: Create strategic animation that enhances the message, aligns with platform behavior, and serves the content type's specific purpose.
+- Generic stock-style drifting motion
 `;
   console.log('�� Calling Gemini Video API natively via SDK...');
 
