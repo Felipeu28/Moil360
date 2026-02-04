@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import {
   BusinessInfo, ContentDay,
@@ -18,37 +19,37 @@ const CAPTION_LENGTH_GUIDELINES = {
     minWords: 250,
     maxWords: 400,
     style: 'Detailed, informative, teaching-focused with data and examples',
-    structure: 'Hook â†’ Context â†’ Deep Dive â†’ Actionable Takeaways â†’ CTA'
+    structure: 'Hook → Context → Deep Dive → Actionable Takeaways → CTA'
   },
   'Promotional': {
     minWords: 100,
     maxWords: 200,
     style: 'Punchy, urgent, benefit-driven with clear value proposition',
-    structure: 'Attention Grab â†’ Unique Benefit â†’ Social Proof â†’ Urgent CTA'
+    structure: 'Attention Grab → Unique Benefit → Social Proof → Urgent CTA'
   },
   'Engagement': {
     minWords: 150,
     maxWords: 300,
     style: 'Conversational, relatable, question-driven to spark interaction',
-    structure: 'Relatable Hook â†’ Story/Question â†’ Community Angle â†’ Engagement CTA'
+    structure: 'Relatable Hook → Story/Question → Community Angle → Engagement CTA'
   },
   'Behind the Scenes': {
     minWords: 200,
     maxWords: 350,
     style: 'Storytelling, authentic, insider perspective with personality',
-    structure: 'Scene Setting â†’ Process/Journey â†’ Insight â†’ Human Connection'
+    structure: 'Scene Setting → Process/Journey → Insight → Human Connection'
   },
   'Testimonial': {
     minWords: 150,
     maxWords: 250,
     style: 'Personal, emotional, transformation-focused with credibility',
-    structure: 'Before State â†’ Challenge â†’ Solution â†’ After Result â†’ Trust Signal'
+    structure: 'Before State → Challenge → Solution → After Result → Trust Signal'
   },
   'Entertainment': {
     minWords: 100,
     maxWords: 250,
     style: 'Fun, personality-driven, shareable with entertainment value',
-    structure: 'Hook â†’ Payoff â†’ Personality â†’ Share Prompt'
+    structure: 'Hook → Payoff → Personality → Share Prompt'
   }
 };
 
@@ -225,7 +226,7 @@ function validateVideoDistribution(calendar: ContentDay[]): ContentDay[] {
 
   // ✅ VALIDATION: Ensure minimum 5 video days
   if (videoDays.length < 5) {
-    console.warn(`âš ï¸ Only ${videoDays.length} video days detected. Adding more...`);
+    console.warn(`âš ï¸ Only ${videoDays.length} video days detected. Adding more...`);
 
     // Strategy: Add video to high-impact days that don't have it
     // Priority order: Promotional > Engagement > Educational
@@ -406,7 +407,7 @@ ${type}:
   for (let batch = 1; batch <= 3; batch++) {
     const startDay = (batch - 1) * 10 + 1;
     const endDay = batch * 10;
-    console.log(`ðŸ“¦ Generating Batch ${batch} (Days ${startDay}-${endDay})...`);
+    console.log(`📦 Generating Batch ${batch} (Days ${startDay}-${endDay})...`);
 
     const batchResponse: GenerateContentResponse = await retryableCall(() => {
       const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
@@ -435,18 +436,18 @@ ${type}:
           TASK: Generate DAYS ${startDay} to ${endDay} of a 30-day "Juan-Style" Content Strategy.
           
           ============================================================================
-          ðŸš¨ CRITICAL COMMAND: ADHERE TO STRATEGIC MISSION & GUIDANCE
+          🚨 CRITICAL COMMAND: ADHERE TO STRATEGIC MISSION & GUIDANCE
           1. MISSION: The goal is ${business.strategicMission || 'Growth'}. ${missionWeights}
           2. VISUALS: Every prompt Must reflect the ${business.visualSignature || 'Bold'} aesthetic.
           3. GUIDANCE: Directly execute "${business.monthlyGuidance || "General Growth"}".
           ============================================================================
-          ðŸ“Š BATCH GENERATION: STAGE ${batch} OF 3
+          📊 BATCH GENERATION: STAGE ${batch} OF 3
           ============================================================================
           - Generate exactly 10 days (Days ${startDay} through ${endDay}).
           ${batch === 1 ? "- Also generate the 'summary', 'quality_score', and 'context' for the whole 30-day strategy." : "- Do NOT generate the summary/score/context, ONLY the 'calendar' array for these 10 days."}
           
           ============================================================================
-          ðŸ“Š WEEK 1 ENHANCEMENT: CAPTION VARIETY REQUIREMENTS
+          📊 WEEK 1 ENHANCEMENT: CAPTION VARIETY REQUIREMENTS
           ============================================================================
           ${captionGuidelines}
           
@@ -523,7 +524,7 @@ ${type}:
 
   // ✅ VALIDATE: Ensure we have all 30 days
   if (fullCalendar.length < 30) {
-    console.warn(`âš ï¸ Strategy truncated to ${fullCalendar.length} days. Filling gaps...`);
+    console.warn(`âš ï¸ Strategy truncated to ${fullCalendar.length} days. Filling gaps...`);
   }
 
   // ✅ WEEK 1: Validate and fix video distribution
@@ -642,7 +643,7 @@ export async function generateAIImage(
 ): Promise<string> {
 
   if (engine === 'qwen') {
-    console.log('ðŸ”€ Routing to Qwen image engine');
+    console.log('🔄 Routing to Qwen image engine');
     try {
       return await generateQwenImage(prompt, aspectRatio);
     } catch (err: any) {
@@ -661,7 +662,7 @@ export async function generateAIImage(
       let mimeType: string = 'image/png';
 
       if (existingBase64.startsWith('http')) {
-        console.log(`ðŸ“¥ Fetching image for editing from: ${existingBase64}`);
+        console.log(`📥 Fetching image for editing from: ${existingBase64}`);
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -727,7 +728,7 @@ CRITICAL REQUIREMENTS:
     }
 
     console.log(`📸 Gemini API call with aspectRatio: ${aspectRatio}`);
-    
+
     // ✅ FIX: Use the correct Gemini model for image generation
     // gemini-2.5-flash-image is the official model for image generation
     const modelName = 'gemini-2.5-flash-image';
@@ -736,7 +737,7 @@ CRITICAL REQUIREMENTS:
     const response = await ai.models.generateContent({
       model: modelName,
       contents: { parts },
-      config: { 
+      config: {
         imageConfig: { aspectRatio }
       }
     });
@@ -759,7 +760,7 @@ export async function generateAIVideo(
 ): Promise<{ url: string, uri: string, blob: Blob }> {
 
   if (engine === 'qwen') {
-    console.log('ðŸ”€ Routing to Qwen video engine');
+    console.log('🔄 Routing to Qwen video engine');
     try {
       const result = await generateQwenVideo(imageUri, topic);
       return {
@@ -774,7 +775,8 @@ export async function generateAIVideo(
 
   console.log('🎬 Using Gemini video engine');
 
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
+  const ai = new GoogleGenAI({ apiKey });
 
   const getMotionStyle = (type: string): string => {
     switch (type) {
@@ -828,7 +830,7 @@ export async function generateAIVideo(
     base64Data = matches[2];
   } else if (imageUri.startsWith('http')) {
     try {
-      console.log(`ðŸ“¥ Fetching image from URL: ${imageUri}`);
+      console.log(`📥 Fetching image from URL: ${imageUri}`);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -847,7 +849,7 @@ export async function generateAIVideo(
       }
 
       const blob = await response.blob();
-      console.log(`ðŸ“¦ Blob received: ${blob.size} bytes, type: ${blob.type}`);
+      console.log(`📦 Blob received: ${blob.size} bytes, type: ${blob.type}`);
 
       if (blob.size === 0) {
         throw new Error("Received empty blob from URL");
@@ -859,7 +861,7 @@ export async function generateAIVideo(
 
       let finalBlob = blob;
       if (blob.size > 1024 * 1024) {
-        console.log(`⚙️ Compressing image from ${(blob.size / 1024 / 1024).toFixed(2)}MB...`);
+        console.log(`âš™ï¸ Compressing image from ${(blob.size / 1024 / 1024).toFixed(2)}MB...`);
 
         try {
           const img = new Image();
@@ -904,7 +906,7 @@ export async function generateAIVideo(
           console.log(`✅ Compressed to ${(finalBlob.size / 1024 / 1024).toFixed(2)}MB`);
           mimeType = 'image/jpeg';
         } catch (compressionErr) {
-          console.warn('âš ï¸ Compression failed, using original:', compressionErr);
+          console.warn('âš ï¸ Compression failed, using original:', compressionErr);
           finalBlob = blob;
         }
       }
@@ -913,7 +915,7 @@ export async function generateAIVideo(
       const bytes = new Uint8Array(arrayBuffer);
 
       if (!finalBlob.type || finalBlob.type === '' || finalBlob.type === 'application/octet-stream') {
-        console.warn('âš ï¸ Blob has no type, detecting from magic bytes...');
+        console.warn('âš ï¸ Blob has no type, detecting from magic bytes...');
 
         if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
           mimeType = 'image/png';
@@ -959,19 +961,19 @@ export async function generateAIVideo(
   }
 
   if (!mimeType || mimeType === '') {
-    console.warn('âš ï¸ Missing mimeType, defaulting to image/png');
+    console.warn('âš ï¸ Missing mimeType, defaulting to image/png');
     mimeType = 'image/png';
   }
 
   const validMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
   if (!validMimeTypes.includes(mimeType.toLowerCase())) {
-    console.warn(`âš ï¸ Invalid mimeType '${mimeType}', converting to image/png`);
+    console.warn(`âš ï¸ Invalid mimeType '${mimeType}', converting to image/png`);
     mimeType = 'image/png';
   }
 
   console.log(`🎬 Video generation starting with mimeType: ${mimeType}, base64 length: ${base64Data.length}`);
 
-  console.log('ðŸ“¤ Sending to Gemini API:', {
+  console.log('📤 Sending to Gemini API:', {
     hasBase64: !!base64Data,
     base64Length: base64Data.length,
     mimeType: mimeType,
@@ -999,7 +1001,7 @@ export async function generateAIVideo(
       throw new Error(`Veo model '${model}' not available. Status: ${modelsResponse.status}. Your API key may not have access to video generation.`);
     }
   } catch (checkErr: any) {
-    console.error('âš ï¸ Model availability check failed:', checkErr.message);
+    console.error('âš ï¸ Model availability check failed:', checkErr.message);
   }
 
   const videoPrompt = `
@@ -1050,81 +1052,30 @@ AVOID (Critical):
 
 GOAL: Create strategic animation that enhances the message, aligns with platform behavior, and serves the content type's specific purpose.
 `;
-
-  console.log('🎬 Calling Gemini Video API directly (bypassing SDK)...');
-
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
+  console.log('�� Calling Gemini Video API natively via SDK...');
 
   let operation;
   try {
-    // ✅ FIX: Veo uses a different API format than standard Gemini
-    // The :predictLongRunning endpoint expects a specific structure
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          instances: [{
-            prompt: videoPrompt,
-            image: {
-              bytesBase64Encoded: base64Data,
-              mimeType: mimeType
-            }
-          }],
-          parameters: {
-            aspectRatio: '9:16'
-          }
-        })
+    // ✅ FIX: Use official SDK method for video generation
+    operation = await ai.models.generateVideos({
+      model: model,
+      prompt: videoPrompt,
+      image: {
+        imageBytes: base64Data,
+        mimeType: mimeType
       }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('âŒ Direct API Error:', errorData);
-      throw new Error(JSON.stringify(errorData));
-    }
-
-    const operationData = await response.json();
-    operation = {
-      name: operationData.name,
-      done: operationData.done || false,
-      metadata: operationData.metadata,
-      response: operationData.response
-    };
+    });
 
     console.log('✅ Video operation started:', operation.name);
 
   } catch (apiErr: any) {
-    console.error('âŒ Gemini API Error Details:', {
-      message: apiErr.message,
-      status: apiErr.status,
-      statusText: apiErr.statusText,
-      name: apiErr.name,
-      stack: apiErr.stack?.split('\n')[0]
-    });
-
-    if (apiErr.response) {
-      try {
-        const responseText = await apiErr.response.text();
-        console.error('ðŸ“‹ Gemini API Response Body:', responseText);
-      } catch (e) {
-        console.error('ðŸ“‹ Response body could not be parsed');
-      }
-    }
+    console.error('❌ Gemini API Error Details:', apiErr);
 
     if (apiErr.message?.includes('quota')) {
       throw new Error(`Gemini API Quota Exceeded. Please check your API key limits and billing.`);
     }
 
-    if (apiErr.message?.includes('Invalid argument') || apiErr.message?.includes('400')) {
-      throw new Error(`Gemini rejected the video request. This may be due to: 1) Image size still too large (${(base64Data.length / 1024).toFixed(0)}KB), 2) Model not available for your API key, 3) Invalid parameters. Original error: ${apiErr.message}`);
-    }
-
-    let errorMsg = apiErr.message || 'Video generation failed';
-    throw new Error(`Gemini Video API Error: ${errorMsg}. Image size: ${(base64Data.length / 1024).toFixed(0)}KB, mimeType: ${mimeType}`);
+    throw new Error(`Gemini Video API Error: ${apiErr.message}. Image size: ${(base64Data.length / 1024).toFixed(0)}KB, mimeType: ${mimeType}`);
   }
 
   console.log(`🎬 Video operation started, polling for completion...`);
@@ -1135,20 +1086,12 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
   while (!operation.done && pollCount < maxPolls) {
     await new Promise(r => setTimeout(r, 10000));
 
-    const statusResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${operation.name}?key=${apiKey}`,
-      { method: 'GET' }
-    );
-
-    if (!statusResponse.ok) {
-      console.error('âš ï¸ Status check failed:', statusResponse.status);
-      pollCount++;
-      continue;
+    try {
+      // ✅ FIX: Use SDK's operation retrieval
+      operation = await ai.operations.getVideosOperation({ operation });
+    } catch (pollErr: any) {
+      console.warn('⚠️ Status check failed:', pollErr.message);
     }
-
-    const statusData = await statusResponse.json();
-    operation.done = statusData.done || false;
-    operation.response = statusData.response;
 
     pollCount++;
 
@@ -1174,7 +1117,7 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
   try {
     const resp = await vanguardFetch(downloadUrl, {}, 4);
     const blob = await resp.blob();
-    console.log(`ðŸ“¥ Video downloaded: ${blob.size} bytes`);
+    console.log(`📥 Video downloaded: ${blob.size} bytes`);
     return { url: URL.createObjectURL(blob), uri, blob };
   } catch (err: any) {
     throw new Error(`Asset Retrieval Failed: ${err.message}`);
