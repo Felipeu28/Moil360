@@ -697,6 +697,7 @@ const App: React.FC = () => {
 
                       // Update state immediately for responsiveness
                       setStrategy(updatedStrategy);
+                      setSelectedDay(updatedDay); // ← CRITICAL: Sync current view
 
                       // Save to database with comprehensive error handling
                       try {
@@ -712,8 +713,8 @@ const App: React.FC = () => {
                           `Please try refreshing the page.`
                         );
 
-                        // Revert to previous strategy if save failed
-                        setStrategy(strategy);
+                        // Revert to previous strategy if save failed (optional, but keep for consistency)
+                        // setStrategy(strategy);
                       }
                     }}
                     visualLayers={visualLayers}
