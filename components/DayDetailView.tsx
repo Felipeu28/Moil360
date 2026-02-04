@@ -55,12 +55,23 @@ const GLASS_OPTIONS = [
   { id: 'glass-tint', label: 'Brand Tint', icon: Sun, class: 'bg-indigo-500/20 backdrop-blur-md border border-indigo-500/30' }
 ];
 
+const MARKETING_PRESETS = [
+  { id: 'viral-hook', name: 'Viral Hook', settings: { font: 'Anton', color: '#FACC15', textTransform: 'uppercase', letterSpacing: 0, lineHeight: 1, glassStyle: 'glass-dark', isBold: true, size: 28, hasShadow: true, shadowBlur: 20 } as Partial<OverlaySettings> },
+  { id: 'modern-minimal', name: 'Modern Minimal', settings: { font: 'Montserrat', color: '#FFFFFF', textTransform: 'capitalize', letterSpacing: 1, lineHeight: 1.2, glassStyle: 'none', isBold: false, size: 18, hasShadow: true, shadowBlur: 10 } as Partial<OverlaySettings> },
+  { id: 'impact-block', name: 'Impact Block', settings: { font: 'Bebas Neue', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: 2, lineHeight: 0.9, glassStyle: 'glass-tint', isBold: true, size: 32, hasShadow: true, shadowBlur: 15 } as Partial<OverlaySettings> },
+  { id: 'clean-educational', name: 'Clean Ed', settings: { font: 'Montserrat', color: '#FFFFFF', textTransform: 'none', letterSpacing: -0.5, lineHeight: 1.4, glassStyle: 'glass-light', isBold: false, size: 16, hasShadow: false } as Partial<OverlaySettings> },
+  { id: 'neon-vibe', name: 'Neon Vibe', settings: { font: 'Montserrat', color: '#22C55E', textTransform: 'uppercase', letterSpacing: 3, lineHeight: 1.1, glassStyle: 'none', isBold: true, size: 24, hasShadow: true, shadowBlur: 30, strokeWidth: 2, strokeColor: '#000000' } as Partial<OverlaySettings> },
+  { id: 'personal-touch', name: 'Personal', settings: { font: 'Caveat', color: '#FFFFFF', textTransform: 'none', letterSpacing: 0, lineHeight: 1.1, glassStyle: 'none', isBold: false, size: 24, hasShadow: true, shadowBlur: 10 } as Partial<OverlaySettings> }
+];
+
 const SNAP_POINTS_THIRDS = [33.33, 50, 66.66];
 const SNAP_POINTS_GOLDEN = [38.2, 50, 61.8];
 const SNAP_THRESHOLD = 3;
 
-const getProportionalFontSize = (size: number, width: number) => {
-  return (size / 400) * width;
+const getProportionalFontSize = (size: number, width: number, ar: '9:16' | '16:9' | '1:1' = '9:16') => {
+  // Trend-Tailored Scaling: 9:16 (Reels/Stories) needs larger text relative to width for impact
+  const baseWidth = ar === '9:16' ? 320 : 400;
+  return (size / baseWidth) * width;
 };
 
 const wrapText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
@@ -116,6 +127,7 @@ export const DayDetailView: React.FC<Props> = ({
   const [gridMode, setGridMode] = useState<'none' | 'thirds' | 'golden'>('none');
   const [activeSnapLines, setActiveSnapLines] = useState<{ x: number | null, y: number | null }>({ x: null, y: null });
   const [activeLayerIndex, setActiveLayerIndex] = useState(0);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [editingLayerIndex, setEditingLayerIndex] = useState<number | null>(null);
@@ -206,6 +218,15 @@ export const DayDetailView: React.FC<Props> = ({
 
   const resetVisuals = () => {
     saveVisualEdits(getDefaultLayers(), 'none');
+  };
+
+  const applyPreset = (presetId: string) => {
+    const preset = MARKETING_PRESETS.find(p => p.id === presetId);
+    if (preset) {
+      const newLayers = [...currentLayers];
+      newLayers[activeLayerIndex] = { ...newLayers[activeLayerIndex], ...preset.settings };
+      saveVisualEdits(newLayers, activeVisualMode);
+    }
   };
 
   const duplicateLayer = (index: number) => {
@@ -392,7 +413,7 @@ export const DayDetailView: React.FC<Props> = ({
             }
             ctx.drawImage(layerImg, -imgW / 2, -imgH / 2, imgW, imgH);
           } else if (layer.type === 'text' && layer.text) {
-            const fontSize = layer.size * scaleFactor;
+            const fontSize = getProportionalFontSize(layer.size || 25, width, aspectRatio);
             const fontString = `${layer.isBold ? '900' : '500'} ${fontSize}px "${layer.font}"`;
             await document.fonts.load(fontString);
             ctx.font = fontString;
@@ -819,158 +840,168 @@ export const DayDetailView: React.FC<Props> = ({
 
           {showOverlayDesigner && (
             <div className="p-8 bg-white border-2 border-indigo-100 rounded-[2.5rem] space-y-8 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center bg-slate-50 -m-8 mb-8 p-6 border-b border-indigo-100 rounded-t-[2.3rem]">
                 <div className="flex items-center gap-3">
                   <Layers className="w-5 h-5 text-indigo-600" />
                   <span className="text-[11px] font-black uppercase tracking-widest text-slate-900">{t.text_architect}</span>
-                  <div className="flex items-center gap-2">
-                    {saveStatus === 'saving' && (
-                      <div className="flex items-center gap-2 text-amber-600 animate-pulse">
-                        <RefreshCw className="w-3 h-3 animate-spin" />
-                        <span className="text-[9px] font-black uppercase">Saving...</span>
-                      </div>
-                    )}
-                    {saveStatus === 'saved' && (
-                      <div className="flex items-center gap-2 text-emerald-600 animate-in fade-in duration-300">
-                        <Check className="w-3 h-3" />
-                        <span className="text-[9px] font-black uppercase">Saved</span>
-                      </div>
-                    )}
+                  <div className="flex bg-slate-200/50 p-1 rounded-xl ml-4">
+                    <button onClick={() => setGridMode(gridMode === 'thirds' ? 'none' : 'thirds')} className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-lg transition-all ${gridMode === 'thirds' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-indigo-600'}`}>3rds</button>
+                    <button onClick={() => setGridMode(gridMode === 'golden' ? 'none' : 'golden')} className={`text-[8px] font-black uppercase px-3 py-1.5 rounded-lg transition-all ${gridMode === 'golden' ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-500 hover:text-amber-500'}`}>Phi</button>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="flex bg-slate-100 p-1 rounded-xl">
-                    <button onClick={() => setGridMode(gridMode === 'thirds' ? 'none' : 'thirds')} className={`flex items-center gap-1.5 text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors ${gridMode === 'thirds' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-indigo-600 bg-white'}`}><Grid3X3 className="w-3.5 h-3.5" /> 1/3</button>
-                    <button onClick={() => setGridMode(gridMode === 'golden' ? 'none' : 'golden')} className={`flex items-center gap-1.5 text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-colors ${gridMode === 'golden' ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-amber-500 bg-white'}`}><Sun className="w-3.5 h-3.5" /> Phi</button>
+                  <div className="flex items-center gap-2">
+                    {saveStatus === 'saving' && <div className="flex items-center gap-2 text-amber-600 animate-pulse"><RefreshCw className="w-3 h-3 animate-spin" /><span className="text-[9px] font-black uppercase">Saving...</span></div>}
+                    {saveStatus === 'saved' && <div className="flex items-center gap-2 text-emerald-600"><Check className="w-3 h-3" /><span className="text-[9px] font-black uppercase">Saved</span></div>}
                   </div>
-                  <button onClick={resetVisuals} className="flex items-center gap-1 text-[9px] font-black uppercase text-slate-400 hover:text-indigo-600 transition-colors"><RotateCcw className="w-3 h-3" /> Reset All</button>
-                  <div className="flex bg-slate-100 p-1 rounded-xl">
-                    {currentLayers.map((_, i) => (
-                      <button key={i} onClick={() => setActiveLayerIndex(i)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeLayerIndex === i ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400'}`}>{currentLayers[i].type === 'text' ? 'Text' : 'Img'} {i + 1}</button>
-                    ))}
-                    <button onClick={() => {
-                      const newLayer: OverlaySettings = {
-                        type: 'text', id: `layer-text-${Date.now()}`,
-                        text: 'New Text', font: FONTS[0].family, color: COLORS[0].value, size: 20, isBold: true, pos: { x: 50, y: 50 },
-                        rotation: 0, scale: 1, opacity: 1, glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0,
-                        lineHeight: 1.1, letterSpacing: 0, textTransform: 'uppercase'
-                      };
-                      const nl = [...currentLayers, newLayer];
-                      saveVisualEdits(nl, activeVisualMode);
-                      setActiveLayerIndex(nl.length - 1);
-                    }} className="px-4 py-2 text-slate-400 hover:text-indigo-600 transition-colors"><Plus className="w-4 h-4" /></button>
-                  </div>
+                  <button onClick={resetVisuals} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><RotateCcw className="w-4 h-4" /></button>
                 </div>
               </div>
 
-              <div className="flex gap-4">
-                <button onClick={() => fileInputRef.current?.click()} disabled={uploadingImage} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-black transition-all shadow-xl">
-                  {uploadingImage ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Add Personal Image
-                </button>
-                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-                <button onClick={() => {
-                  if (currentLayers.length <= 1) return;
-                  const nl = currentLayers.filter((_, i) => i !== activeLayerIndex);
-                  saveVisualEdits(nl, activeVisualMode);
-                  setActiveLayerIndex(Math.max(0, activeLayerIndex - 1));
-                }} className="px-6 py-4 bg-rose-50 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100 transition-all border border-rose-100">
-                  Delete Layer
-                </button>
+              {/* Tier 1: Marketing Presets (Speed) */}
+              <div className="space-y-4">
+                <span className="text-[9px] font-black uppercase text-indigo-500 flex items-center gap-2"><Sparkles className="w-3.5 h-3.5" /> Marketing Presets</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {MARKETING_PRESETS.map(preset => (
+                    <button key={preset.id} onClick={() => applyPreset(preset.id)} className="group relative h-20 bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden hover:border-indigo-500 hover:scale-[1.02] active:scale-95 transition-all">
+                      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent group-hover:from-indigo-500/10" />
+                      <span className="relative text-[9px] font-black uppercase text-slate-900 px-2 line-clamp-1">{preset.name}</span>
+                      <div className="absolute bottom-2 left-2 right-2 h-1 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 w-1/3 group-hover:w-full transition-all duration-500" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
+              {/* Tier 2: Layer Management (Decluttered) */}
+              <div className="flex items-center justify-between bg-slate-900 p-2 rounded-2xl shadow-xl">
+                <div className="flex bg-white/10 p-1 rounded-xl">
+                  {currentLayers.map((_, i) => (
+                    <button key={i} onClick={() => setActiveLayerIndex(i)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeLayerIndex === i ? 'bg-white text-slate-900 shadow-lg' : 'text-white/40 hover:text-white'}`}>{i + 1}</button>
+                  ))}
+                  <button onClick={() => {
+                    const newLayer: OverlaySettings = {
+                      type: 'text', id: `layer-text-${Date.now()}`,
+                      text: 'New Post Hook', font: FONTS[0].family, color: COLORS[0].value, size: 24, isBold: true, pos: { x: 50, y: 50 },
+                      rotation: 0, scale: 1, opacity: 1, glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0,
+                      lineHeight: 1.1, letterSpacing: 0, textTransform: 'uppercase'
+                    };
+                    const nl = [...currentLayers, newLayer];
+                    saveVisualEdits(nl, activeVisualMode);
+                    setActiveLayerIndex(nl.length - 1);
+                  }} className="px-4 py-2 text-white/40 hover:text-indigo-400 transition-colors"><Plus className="w-4 h-4" /></button>
+                </div>
+                <div className="flex gap-1 pr-1">
+                  <button onClick={() => reorderLayer(activeLayerIndex, 'down')} className="p-2.5 text-white/60 hover:text-white hover:bg-white/10 rounded-xl transition-all"><ArrowLeft className="w-4 h-4" /></button>
+                  <button onClick={() => reorderLayer(activeLayerIndex, 'up')} className="p-2.5 text-white/60 hover:text-white hover:bg-white/10 rounded-xl transition-all"><ArrowRight className="w-4 h-4" /></button>
+                  <button onClick={() => duplicateLayer(activeLayerIndex)} className="p-2.5 text-white/60 hover:text-white hover:bg-white/10 rounded-xl transition-all"><Copy className="w-4 h-4" /></button>
+                  <button onClick={() => { if (currentLayers.length > 1) { const nl = currentLayers.filter((_, i) => i !== activeLayerIndex); saveVisualEdits(nl, activeVisualMode); setActiveLayerIndex(Math.max(0, activeLayerIndex - 1)); } }} className="p-2.5 text-rose-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+
+              {/* Tier 3: Core Content */}
               <div className="space-y-6">
                 <textarea
                   value={currentLayers[activeLayerIndex]?.text || ''}
                   onChange={e => updateLayer(activeLayerIndex, { text: e.target.value })}
-                  className="w-full p-6 bg-white border border-slate-100 rounded-2xl text-sm font-bold shadow-inner h-24 resize-none outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
+                  className="w-full p-6 bg-slate-50 border border-slate-100 rounded-[2rem] text-sm font-bold shadow-inner h-28 resize-none outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
                   placeholder="Enter text..."
                 />
-                <div className="grid grid-cols-3 gap-2">
-                  {FONTS.map(f => <button key={f.family} onClick={() => updateLayer(activeLayerIndex, { font: f.family })} className={`py-3 rounded-xl text-[9px] font-bold transition-all border ${currentLayers[activeLayerIndex]?.font === f.family ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-100 text-slate-500'}`} style={{ fontFamily: f.family }}>{f.name}</button>)}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    <span className="text-[9px] font-black uppercase text-slate-400 ml-2">Typography</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {FONTS.slice(0, 4).map(f => (
+                        <button key={f.family} onClick={() => updateLayer(activeLayerIndex, { font: f.family })} className={`py-3 rounded-xl text-[8px] font-bold border transition-all ${currentLayers[activeLayerIndex]?.font === f.family ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white border-slate-100 text-slate-500'}`} style={{ fontFamily: f.family }}>{f.name}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <span className="text-[9px] font-black uppercase text-slate-400 ml-2">Colors</span>
+                    <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-2xl">
+                      {COLORS.map(c => <button key={c.value} onClick={() => updateLayer(activeLayerIndex, { color: c.value })} className={`w-5 h-5 rounded-full border border-slate-200 ${currentLayers[activeLayerIndex]?.color === c.value ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`} style={{ backgroundColor: c.value }} />)}
+                    </div>
+                  </div>
                 </div>
+
                 <div className="space-y-4">
-                  <span className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2"><LayoutTemplate className="w-3 h-3" /> Glass Labels</span>
+                  <div className="flex justify-between items-center px-2">
+                    <span className="text-[9px] font-black uppercase text-slate-400">Glass Effects</span>
+                    <div className="flex gap-2">
+                      {(['none', 'uppercase', 'capitalize'] as const).map(mode => (
+                        <button key={mode} onClick={() => updateLayer(activeLayerIndex, { textTransform: mode })} className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase transition-all ${currentLayers[activeLayerIndex]?.textTransform === mode ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{mode}</button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-4 gap-2">
                     {GLASS_OPTIONS.map(style => (
-                      <button key={style.id} onClick={() => updateLayer(activeLayerIndex, { glassStyle: style.id as any })} className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${currentLayers[activeLayerIndex]?.glassStyle === style.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-400 hover:text-indigo-600'}`}>
+                      <button key={style.id} onClick={() => updateLayer(activeLayerIndex, { glassStyle: style.id as any })} className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${currentLayers[activeLayerIndex]?.glassStyle === style.id ? 'bg-white text-indigo-600 border-indigo-200 shadow-xl' : 'bg-slate-50 border-transparent text-slate-400'}`}>
                         <style.icon className="w-4 h-4" />
                         <span className="text-[7px] font-black uppercase">{style.label}</span>
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Sliders className="w-4 h-4 text-indigo-500" /> Stroke & Outline</label>
-                    <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
-                      <input type="range" min="0" max="25" value={currentLayers[activeLayerIndex]?.strokeWidth || 0} onChange={e => updateLayer(activeLayerIndex, { strokeWidth: parseInt(e.target.value) })} className="flex-1 h-1 bg-slate-200 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                      <input type="color" value={currentLayers[activeLayerIndex]?.strokeColor || '#000000'} onChange={e => updateLayer(activeLayerIndex, { strokeColor: e.target.value })} className="w-8 h-8 rounded-lg cursor-pointer border-none p-0" />
+
+                {/* Tier 4: Collapsible Advanced */}
+                <div className="pt-4 border-t border-slate-100">
+                  <button onClick={() => setShowAdvanced(!showAdvanced)} className="w-full py-4 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors">
+                    <span className="flex items-center gap-2"><Sliders className="w-4 h-4" /> Advanced Stylist</span>
+                    {showAdvanced ? <ChevronLeft className="w-4 h-4 -rotate-90" /> : <ChevronRight className="w-4 h-4 rotate-90" />}
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="space-y-8 py-6 animate-in slide-in-from-top-4 duration-300">
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                          <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 ml-2"><RotateCw className="w-4 h-4" /> Rotation</label>
+                          <input type="range" min="-180" max="180" value={currentLayers[activeLayerIndex]?.rotation || 0} onChange={e => updateLayer(activeLayerIndex, { rotation: parseInt(e.target.value) })} className="w-full h-1 bg-slate-100 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                        </div>
+                        <div className="space-y-4">
+                          <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 ml-2"><Maximize className="w-4 h-4" /> Scale</label>
+                          <input type="range" min="0.1" max="3" step="0.1" value={currentLayers[activeLayerIndex]?.scale || 1} onChange={e => updateLayer(activeLayerIndex, { scale: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-100 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                          <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 ml-2"><ArrowUp className="w-4 h-4" /> Leading</label>
+                          <input type="range" min="0.8" max="2" step="0.1" value={currentLayers[activeLayerIndex]?.lineHeight || 1.1} onChange={e => updateLayer(activeLayerIndex, { lineHeight: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-100 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                        </div>
+                        <div className="space-y-4">
+                          <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 ml-2"><ArrowRight className="w-4 h-4" /> Tracking</label>
+                          <input type="range" min="-5" max="20" step="0.5" value={currentLayers[activeLayerIndex]?.letterSpacing || 0} onChange={e => updateLayer(activeLayerIndex, { letterSpacing: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-100 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                          <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 ml-2"><Sparkles className="w-4 h-4" /> Opacity</label>
+                          <input type="range" min="0" max="1" step="0.05" value={currentLayers[activeLayerIndex]?.opacity ?? 1} onChange={e => updateLayer(activeLayerIndex, { opacity: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-100 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                        </div>
+                        <div className="space-y-4">
+                          <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-2 ml-2"><Sun className="w-4 h-4" /> Shadow</label>
+                          <input type="range" min="0" max="100" value={currentLayers[activeLayerIndex]?.shadowBlur || 0} onChange={e => updateLayer(activeLayerIndex, { shadowBlur: parseInt(e.target.value) })} className="w-full h-1 bg-slate-100 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                        <div className="flex gap-2">
+                          <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'left' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'left' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-900'}`}><AlignLeft className="w-4 h-4" /></button>
+                          <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'center' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'center' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-900'}`}><AlignCenter className="w-4 h-4" /></button>
+                          <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'right' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'right' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-900'}`}><AlignRight className="w-4 h-4" /></button>
+                        </div>
+                        <button onClick={() => updateLayer(activeLayerIndex, { pos: { x: 50, y: 50 } })} className="px-5 py-2.5 bg-white text-slate-900 rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all shadow-sm border border-slate-100 flex items-center gap-2">Center Layer</button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-4">
-                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Sun className="w-4 h-4 text-amber-500" /> Shadow Depth</label>
-                    <input type="range" min="0" max="100" value={currentLayers[activeLayerIndex]?.shadowBlur || 0} onChange={e => updateLayer(activeLayerIndex, { shadowBlur: parseInt(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                  </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><RotateCw className="w-4 h-4 text-indigo-500" /> Rotation</label>
-                    <input type="range" min="-180" max="180" value={currentLayers[activeLayerIndex]?.rotation || 0} onChange={e => updateLayer(activeLayerIndex, { rotation: parseInt(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                  </div>
-                  <div className="space-y-4">
-                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Maximize className="w-4 h-4 text-amber-500" /> Scale</label>
-                    <input type="range" min="0.1" max="3" step="0.1" value={currentLayers[activeLayerIndex]?.scale || 1} onChange={e => updateLayer(activeLayerIndex, { scale: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                  </div>
-                </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Sparkles className="w-4 h-4 text-indigo-500" /> Opacity</label>
-                    <input type="range" min="0" max="1" step="0.05" value={currentLayers[activeLayerIndex]?.opacity ?? 1} onChange={e => updateLayer(activeLayerIndex, { opacity: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                  </div>
-                  <div className="space-y-4">
-                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Maximize className="w-4 h-4 text-indigo-500" /> {t.scale} (Layer Size)</label>
-                    <input type="range" min="5" max="100" value={currentLayers[activeLayerIndex]?.size || 25} onChange={e => updateLayer(activeLayerIndex, { size: parseInt(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                  </div>
-                </div>
-
-                {currentLayers[activeLayerIndex]?.type === 'text' && (
-                  <div className="space-y-4">
-                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><Palette className="w-4 h-4 text-rose-500" /> {t.text_color}</label>
-                    <div className="flex flex-wrap gap-2">
-                      {COLORS.map(c => <button key={c.value} onClick={() => updateLayer(activeLayerIndex, { color: c.value })} className={`w-6 h-6 rounded-full border border-slate-200 ${currentLayers[activeLayerIndex]?.color === c.value ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`} style={{ backgroundColor: c.value }} />)}
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><ArrowUp className="w-4 h-4 text-indigo-500" /> Line Height</label>
-                    <input type="range" min="0.8" max="2" step="0.1" value={currentLayers[activeLayerIndex]?.lineHeight || 1.1} onChange={e => updateLayer(activeLayerIndex, { lineHeight: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                  </div>
-                  <div className="space-y-4">
-                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><ArrowRight className="w-4 h-4 text-amber-500" /> Letter Spacing</label>
-                    <input type="range" min="-5" max="20" step="0.5" value={currentLayers[activeLayerIndex]?.letterSpacing || 0} onChange={e => updateLayer(activeLayerIndex, { letterSpacing: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><TypeIcon className="w-4 h-4 text-indigo-500" /> Case & Logic</label>
-                  <div className="flex gap-2">
-                    {(['none', 'uppercase', 'lowercase', 'capitalize'] as const).map(mode => (
-                      <button key={mode} onClick={() => updateLayer(activeLayerIndex, { textTransform: mode })} className={`flex-1 py-3 rounded-xl text-[8px] font-black uppercase transition-all ${currentLayers[activeLayerIndex]?.textTransform === mode ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>{mode}</button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center bg-slate-900 p-4 rounded-3xl">
-                  <div className="flex gap-2">
-                    <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'left' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'left' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><AlignLeft className="w-4 h-4" /></button>
-                    <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'center' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'center' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><AlignCenter className="w-4 h-4" /></button>
-                    <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'right' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'right' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><AlignRight className="w-4 h-4" /></button>
-                  </div>
-                  <button onClick={() => updateLayer(activeLayerIndex, { pos: { x: 50, y: 50 } })} className="px-6 py-3 bg-white text-slate-900 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all shadow-md flex items-center gap-2"><LayoutGrid className="w-3 h-3" /> Master Center</button>
-                </div>
+              <div className="flex gap-4">
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploadingImage} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all shadow-[0_10px_30px_rgba(99,102,241,0.3)]">
+                  {uploadingImage ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Upload Media
+                </button>
+                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
               </div>
             </div>
           )}
@@ -994,7 +1025,7 @@ export const DayDetailView: React.FC<Props> = ({
                       <img key={activeAsset.url} src={activeAsset.rawUrl} className={`w-full h-full object-cover transition-transform duration-[12000ms] ${motionSimulation ? 'scale-150 translate-y-[-10%]' : 'scale-100'} ${VISUAL_MODES.find(m => m.id === activeVisualMode)?.class}`} alt="Asset" />
                       {currentLayers.map((layer, i) => {
                         if (!layer) return null;
-                        const fontSize = getProportionalFontSize(layer.size || 25, previewWidth);
+                        const fontSize = getProportionalFontSize(layer.size || 25, previewWidth, aspectRatio);
                         const isSelected = activeLayerIndex === i && showOverlayDesigner;
 
                         return (
@@ -1070,21 +1101,7 @@ export const DayDetailView: React.FC<Props> = ({
                               </div>
                             )}
 
-                            {/* Contextual Toolbar - Only for selected non-editing layer */}
-                            {isSelected && editingLayerIndex === null && (
-                              <div className="absolute top-[-50px] left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-xl border border-white/20 p-2 rounded-2xl shadow-2xl flex items-center gap-1.5 z-[100] animate-in slide-in-from-bottom-2 duration-200">
-                                <button onClick={(e) => { e.stopPropagation(); updateLayer(i, { size: Math.max(5, (layer.size || 25) - 2) }); }} className="p-2 text-white hover:bg-white/10 rounded-xl transition-all" title="Decrease Size"><ArrowDown className="w-3.5 h-3.5" /></button>
-                                <button onClick={(e) => { e.stopPropagation(); updateLayer(i, { size: Math.min(100, (layer.size || 25) + 2) }); }} className="p-2 text-white hover:bg-white/10 rounded-xl transition-all" title="Increase Size"><ArrowUp className="w-3.5 h-3.5" /></button>
-                                <div className="w-[1px] h-4 bg-white/20 mx-1" />
-                                <button onClick={(e) => { e.stopPropagation(); reorderLayer(i, 'down'); }} className={`p-2 text-white hover:bg-white/10 rounded-xl transition-all ${i === 0 ? 'opacity-30 pointer-events-none' : ''}`} title="Move Back"><Layers className="w-3.5 h-3.5 rotate-180" /></button>
-                                <button onClick={(e) => { e.stopPropagation(); reorderLayer(i, 'up'); }} className={`p-2 text-white hover:bg-white/10 rounded-xl transition-all ${i === currentLayers.length - 1 ? 'opacity-30 pointer-events-none' : ''}`} title="Bring Front"><Layers className="w-3.5 h-3.5" /></button>
-                                <div className="w-[1px] h-4 bg-white/20 mx-1" />
-                                <button onClick={(e) => { e.stopPropagation(); duplicateLayer(i); }} className="p-2 text-white hover:bg-white/10 rounded-xl transition-all" title="Duplicate"><Plus className="w-3.5 h-3.5" /></button>
-                                <button onClick={(e) => { e.stopPropagation(); if (confirm('Delete layer?')) { const nl = currentLayers.filter((_, idx) => idx !== i); saveVisualEdits(nl, activeVisualMode); setActiveLayerIndex(Math.max(0, i - 1)); } }} className="p-2 text-rose-400 hover:bg-rose-500/20 rounded-xl transition-all" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
-                                <div className="w-[1px] h-4 bg-white/20 mx-1" />
-                                <button onClick={(e) => { e.stopPropagation(); setEditingLayerIndex(i); }} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase tracking-tight hover:bg-indigo-500 transition-all shadow-lg ml-1">Edit Text</button>
-                              </div>
-                            )}
+
                           </div>
                         );
                       })}
