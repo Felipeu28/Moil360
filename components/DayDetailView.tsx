@@ -36,7 +36,13 @@ const COLORS = [
   { name: 'Viral Yellow', value: '#FACC15' },
   { name: 'Hot Red', value: '#EF4444' },
   { name: 'Neon Green', value: '#22C55E' },
-  { name: 'Moil Indigo', value: '#6366F1' }
+  { name: 'Moil Indigo', value: '#6366F1' },
+  { name: 'Sage Green', value: '#7C9A92' },
+  { name: 'Dusty Rose', value: '#D4A5A5' },
+  { name: 'Sky Blue', value: '#0EA5E9' },
+  { name: 'Electric Purple', value: '#A855F7' },
+  { name: 'Sunset Orange', value: '#F97316' },
+  { name: 'Soft Cream', value: '#F5F5DC' }
 ];
 
 const VISUAL_MODES = [
@@ -56,12 +62,12 @@ const GLASS_OPTIONS = [
 ];
 
 const MARKETING_PRESETS = [
-  { id: 'viral-hook', name: 'Viral Hook', settings: { font: 'Anton', color: '#FACC15', textTransform: 'uppercase', letterSpacing: 0, lineHeight: 1, glassStyle: 'glass-dark', isBold: true, size: 28, hasShadow: true, shadowBlur: 20 } as Partial<OverlaySettings> },
-  { id: 'modern-minimal', name: 'Modern Minimal', settings: { font: 'Montserrat', color: '#FFFFFF', textTransform: 'capitalize', letterSpacing: 1, lineHeight: 1.2, glassStyle: 'none', isBold: false, size: 18, hasShadow: true, shadowBlur: 10 } as Partial<OverlaySettings> },
-  { id: 'impact-block', name: 'Impact Block', settings: { font: 'Bebas Neue', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: 2, lineHeight: 0.9, glassStyle: 'glass-tint', isBold: true, size: 32, hasShadow: true, shadowBlur: 15 } as Partial<OverlaySettings> },
-  { id: 'clean-educational', name: 'Clean Ed', settings: { font: 'Montserrat', color: '#FFFFFF', textTransform: 'none', letterSpacing: -0.5, lineHeight: 1.4, glassStyle: 'glass-light', isBold: false, size: 16, hasShadow: false } as Partial<OverlaySettings> },
-  { id: 'neon-vibe', name: 'Neon Vibe', settings: { font: 'Montserrat', color: '#22C55E', textTransform: 'uppercase', letterSpacing: 3, lineHeight: 1.1, glassStyle: 'none', isBold: true, size: 24, hasShadow: true, shadowBlur: 30, strokeWidth: 2, strokeColor: '#000000' } as Partial<OverlaySettings> },
-  { id: 'personal-touch', name: 'Personal', settings: { font: 'Caveat', color: '#FFFFFF', textTransform: 'none', letterSpacing: 0, lineHeight: 1.1, glassStyle: 'none', isBold: false, size: 24, hasShadow: true, shadowBlur: 10 } as Partial<OverlaySettings> }
+  { id: 'viral-hook', name: 'Viral Hook', settings: { font: 'Anton', color: '#FACC15', textTransform: 'uppercase', letterSpacing: 0, lineHeight: 1, glassStyle: 'none', bgStyle: 'solid', bgColor: '#000000', isBold: true, size: 22, hasShadow: true, shadowBlur: 20 } as Partial<OverlaySettings> },
+  { id: 'modern-minimal', name: 'Modern Minimal', settings: { font: 'Montserrat', color: '#FFFFFF', textTransform: 'capitalize', letterSpacing: 1, lineHeight: 1.2, glassStyle: 'none', bgStyle: 'none', isBold: false, size: 14, hasShadow: true, shadowBlur: 10 } as Partial<OverlaySettings> },
+  { id: 'impact-block', name: 'Impact Block', settings: { font: 'Bebas Neue', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: 2, lineHeight: 0.9, glassStyle: 'none', bgStyle: 'solid', bgColor: '#6366F1', isBold: true, size: 26, hasShadow: true, shadowBlur: 15 } as Partial<OverlaySettings> },
+  { id: 'clean-educational', name: 'Clean Ed', settings: { font: 'Montserrat', color: '#FFFFFF', textTransform: 'none', letterSpacing: -0.5, lineHeight: 1.4, glassStyle: 'glass-light', bgStyle: 'glass', isBold: false, size: 12, hasShadow: false } as Partial<OverlaySettings> },
+  { id: 'neon-vibe', name: 'Neon Vibe', settings: { font: 'Montserrat', color: '#22C55E', textTransform: 'uppercase', letterSpacing: 3, lineHeight: 1.1, glassStyle: 'none', bgStyle: 'none', isBold: true, size: 20, hasShadow: true, shadowBlur: 30, strokeWidth: 2, strokeColor: '#000000' } as Partial<OverlaySettings> },
+  { id: 'personal-touch', name: 'Personal', settings: { font: 'Caveat', color: '#FFFFFF', textTransform: 'none', letterSpacing: 0, lineHeight: 1.1, glassStyle: 'none', bgStyle: 'none', isBold: false, size: 20, hasShadow: true, shadowBlur: 10 } as Partial<OverlaySettings> }
 ];
 
 const SNAP_POINTS_THIRDS = [33.33, 50, 66.66];
@@ -170,16 +176,16 @@ export const DayDetailView: React.FC<Props> = ({
   const getDefaultLayers = useCallback((): OverlaySettings[] => [
     {
       type: 'text', id: 'layer-hook',
-      text: day.hook, font: FONTS[0].family, color: COLORS[0].value, size: 25, isBold: true, pos: { x: 50, y: 35 },
+      text: day.hook, font: FONTS[0].family, color: COLORS[0].value, size: 20, isBold: true, pos: { x: 50, y: 35 },
       rotation: 0, scale: 1, opacity: 1,
-      glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 15, strokeColor: '#000000', strokeWidth: 0,
+      glassStyle: 'none', bgStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 15, strokeColor: '#000000', strokeWidth: 0,
       lineHeight: 1.1, letterSpacing: 0, textTransform: 'uppercase'
     },
     {
       type: 'text', id: 'layer-body',
-      text: '', font: FONTS[2].family, color: COLORS[0].value, size: 20, isBold: false, pos: { x: 50, y: 65 },
+      text: '', font: FONTS[2].family, color: COLORS[0].value, size: 16, isBold: false, pos: { x: 50, y: 65 },
       rotation: 0, scale: 1, opacity: 1,
-      glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0,
+      glassStyle: 'none', bgStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0,
       lineHeight: 1.1, letterSpacing: 0, textTransform: 'none'
     }
   ], [day.hook]);
@@ -429,29 +435,34 @@ export const DayDetailView: React.FC<Props> = ({
 
             const totalBlockHeight = (lines.length * lineHeight) + ((lines.length - 1) * lineSpacing);
 
-            if (layer.glassStyle && layer.glassStyle !== 'none') {
-              ctx.save();
-              if (layer.glassStyle === 'glass-light') ctx.fillStyle = 'rgba(255,255,255,0.25)';
-              else if (layer.glassStyle === 'glass-dark') ctx.fillStyle = 'rgba(0,0,0,0.55)';
-              else if (layer.glassStyle === 'glass-tint') ctx.fillStyle = 'rgba(79,70,229,0.35)';
+            lines.forEach((l, i) => {
+              let textToDraw = l.trim();
+              if (layer.textTransform === 'uppercase') textToDraw = textToDraw.toUpperCase();
+              else if (layer.textTransform === 'lowercase') textToDraw = textToDraw.toLowerCase();
+              else if (layer.textTransform === 'capitalize') textToDraw = textToDraw.replace(/\b\w/g, c => c.toUpperCase());
 
-              lines.forEach((l, i) => {
-                let textToDraw = l.trim();
-                if (layer.textTransform === 'uppercase') textToDraw = textToDraw.toUpperCase();
-                else if (layer.textTransform === 'lowercase') textToDraw = textToDraw.toLowerCase();
-                else if (layer.textTransform === 'capitalize') textToDraw = textToDraw.replace(/\b\w/g, c => c.toUpperCase());
+              const metrics = ctx.measureText(textToDraw);
+              const bgW = metrics.width + (padX * 2);
+              const bgH = lineHeight + (padY * 2);
+              const yOffset = (i * (lineHeight + lineSpacing)) - (totalBlockHeight / 2) + (lineHeight / 2);
 
-                const metrics = ctx.measureText(textToDraw);
-                const bgW = metrics.width + (padX * 2);
-                const bgH = lineHeight + (padY * 2);
-                const yOffset = (i * (lineHeight + lineSpacing)) - (totalBlockHeight / 2) + (lineHeight / 2);
+              if (layer.bgStyle === 'glass') {
+                ctx.save();
+                if (layer.glassStyle === 'glass-light') ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                else if (layer.glassStyle === 'glass-dark') ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                else if (layer.glassStyle === 'glass-tint') ctx.fillStyle = 'rgba(79,70,229,0.35)';
                 ctx.fillRect(-bgW / 2, yOffset - bgH / 2, bgW, bgH);
                 ctx.strokeStyle = 'rgba(255,255,255,0.15)';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(-bgW / 2, yOffset - bgH / 2, bgW, bgH);
-              });
-              ctx.restore();
-            }
+                ctx.restore();
+              } else if (layer.bgStyle === 'solid') {
+                ctx.save();
+                ctx.fillStyle = layer.bgColor || '#000000';
+                ctx.fillRect(-bgW / 2, yOffset - bgH / 2, bgW, bgH);
+                ctx.restore();
+              }
+            });
 
             lines.forEach((l, i) => {
               const yOffset = (i * (lineHeight + lineSpacing)) - (totalBlockHeight / 2) + (lineHeight / 2);
@@ -597,6 +608,7 @@ export const DayDetailView: React.FC<Props> = ({
           scale: 1,
           opacity: 1,
           glassStyle: 'none',
+          bgStyle: 'none',
           textAlign: 'center',
           hasShadow: false,
           shadowBlur: 10,
@@ -884,7 +896,7 @@ export const DayDetailView: React.FC<Props> = ({
                     const newLayer: OverlaySettings = {
                       type: 'text', id: `layer-text-${Date.now()}`,
                       text: 'New Post Hook', font: FONTS[0].family, color: COLORS[0].value, size: 24, isBold: true, pos: { x: 50, y: 50 },
-                      rotation: 0, scale: 1, opacity: 1, glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0,
+                      rotation: 0, scale: 1, opacity: 1, glassStyle: 'none', bgStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0,
                       lineHeight: 1.1, letterSpacing: 0, textTransform: 'uppercase'
                     };
                     const nl = [...currentLayers, newLayer];
@@ -919,29 +931,56 @@ export const DayDetailView: React.FC<Props> = ({
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <span className="text-[9px] font-black uppercase text-slate-400 ml-2">Colors</span>
+                    <div className="flex justify-between items-center ml-2">
+                      <span className="text-[9px] font-black uppercase text-slate-400">Social Spectrum</span>
+                      <input
+                        type="color"
+                        value={currentLayers[activeLayerIndex]?.color || '#FFFFFF'}
+                        onChange={e => updateLayer(activeLayerIndex, { color: e.target.value })}
+                        className="w-5 h-5 rounded-lg cursor-pointer bg-transparent border-none p-0"
+                      />
+                    </div>
                     <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-2xl">
-                      {COLORS.map(c => <button key={c.value} onClick={() => updateLayer(activeLayerIndex, { color: c.value })} className={`w-5 h-5 rounded-full border border-slate-200 ${currentLayers[activeLayerIndex]?.color === c.value ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`} style={{ backgroundColor: c.value }} />)}
+                      {COLORS.map(c => <button key={c.value} onClick={() => updateLayer(activeLayerIndex, { color: c.value })} className={`w-5 h-5 rounded-full border border-slate-200 transition-transform hover:scale-125 ${currentLayers[activeLayerIndex]?.color === c.value ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`} style={{ backgroundColor: c.value }} />)}
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex justify-between items-center px-2">
-                    <span className="text-[9px] font-black uppercase text-slate-400">Glass Effects</span>
+                    <span className="text-[9px] font-black uppercase text-slate-400">Pro Backgrounds</span>
+                    <div className="flex bg-slate-100 p-1 rounded-xl">
+                      {(['none', 'glass', 'solid'] as const).map(style => (
+                        <button key={style} onClick={() => updateLayer(activeLayerIndex, { bgStyle: style })} className={`px-4 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${currentLayers[activeLayerIndex]?.bgStyle === style ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400'}`}>{style}</button>
+                      ))}
+                    </div>
+                  </div>
+                  {currentLayers[activeLayerIndex]?.bgStyle === 'glass' && (
+                    <div className="grid grid-cols-4 gap-2 animate-in fade-in duration-300">
+                      {GLASS_OPTIONS.map(style => (
+                        <button key={style.id} onClick={() => updateLayer(activeLayerIndex, { glassStyle: style.id as any })} className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${currentLayers[activeLayerIndex]?.glassStyle === style.id ? 'bg-white text-indigo-600 border-indigo-200 shadow-xl' : 'bg-slate-50 border-transparent text-slate-400'}`}>
+                          <style.icon className="w-4 h-4" />
+                          <span className="text-[7px] font-black uppercase">{style.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {currentLayers[activeLayerIndex]?.bgStyle === 'solid' && (
+                    <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-2xl animate-in fade-in duration-300">
+                      <span className="text-[8px] font-black uppercase text-slate-400 ml-2">Bar Color</span>
+                      <div className="flex flex-wrap gap-1.5 ml-4">
+                        {COLORS.slice(0, 6).map(c => <button key={c.value} onClick={() => updateLayer(activeLayerIndex, { bgColor: c.value })} className={`w-4 h-4 rounded-full ${currentLayers[activeLayerIndex]?.bgColor === c.value ? 'ring-2 ring-indigo-500 ring-offset-1' : ''}`} style={{ backgroundColor: c.value }} />)}
+                        <input type="color" value={currentLayers[activeLayerIndex]?.bgColor || '#000000'} onChange={e => updateLayer(activeLayerIndex, { bgColor: e.target.value })} className="w-4 h-4 rounded-full bg-transparent border border-slate-200 p-0 cursor-pointer" />
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center px-2 pt-2 text-[9px] font-black uppercase text-slate-400">
+                    <span>Case Logic</span>
                     <div className="flex gap-2">
                       {(['none', 'uppercase', 'capitalize'] as const).map(mode => (
                         <button key={mode} onClick={() => updateLayer(activeLayerIndex, { textTransform: mode })} className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase transition-all ${currentLayers[activeLayerIndex]?.textTransform === mode ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{mode}</button>
                       ))}
                     </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {GLASS_OPTIONS.map(style => (
-                      <button key={style.id} onClick={() => updateLayer(activeLayerIndex, { glassStyle: style.id as any })} className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${currentLayers[activeLayerIndex]?.glassStyle === style.id ? 'bg-white text-indigo-600 border-indigo-200 shadow-xl' : 'bg-slate-50 border-transparent text-slate-400'}`}>
-                        <style.icon className="w-4 h-4" />
-                        <span className="text-[7px] font-black uppercase">{style.label}</span>
-                      </button>
-                    ))}
                   </div>
                 </div>
 
@@ -1073,14 +1112,18 @@ export const DayDetailView: React.FC<Props> = ({
                               <div className="relative w-full flex flex-col items-center" onDoubleClick={() => setEditingLayerIndex(i)}>
                                 {(layer.text || '').split('\n').map((line, lineIdx) => {
                                   if (!line || !line.trim()) return null;
-                                  const glassClass = GLASS_OPTIONS.find(g => g.id === layer.glassStyle)?.class || '';
+                                  const glassClass = layer.bgStyle === 'glass' ? (GLASS_OPTIONS.find(g => g.id === layer.glassStyle)?.class || '') : '';
                                   let textToDisplay = line.trim();
                                   if (layer.textTransform === 'uppercase') textToDisplay = textToDisplay.toUpperCase();
                                   else if (layer.textTransform === 'lowercase') textToDisplay = textToDisplay.toLowerCase();
                                   else if (layer.textTransform === 'capitalize') textToDisplay = textToDisplay.replace(/\b\w/g, c => c.toUpperCase());
 
                                   return (
-                                    <div key={lineIdx} className={`${glassClass} px-3 py-1 my-[0.1em] transition-all rounded-sm flex items-center justify-center`} style={{ marginBottom: `${(layer.lineHeight || 1.1) - 1}em` }}>
+                                    <div key={lineIdx} className={`${glassClass} px-3 py-1 my-[0.1em] transition-all rounded-sm flex items-center justify-center`} style={{
+                                      marginBottom: `${(layer.lineHeight || 1.1) - 1}em`,
+                                      backgroundColor: layer.bgStyle === 'solid' ? (layer.bgColor || '#000000') : undefined,
+                                      borderRadius: layer.bgStyle === 'solid' ? '4px' : undefined
+                                    }}>
                                       <h2 style={{
                                         color: layer.color || '#FFFFFF',
                                         fontSize: `${fontSize}px`,
