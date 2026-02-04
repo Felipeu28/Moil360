@@ -296,17 +296,25 @@ export async function generateContentStrategy(
   let activeSignature: VisualSignature = business.visualSignature || 'Bold';
 
   // RECURSIVE GROWTH ENGINE: Analyze previous month if available
+  const previousCalendarText = previousStrategy?.calendar.map(day =>
+    `Day ${day.day}: Topic: ${day.topic} | Hook: ${day.hook} | Type: ${day.content_type}`
+  ).join('\n') || "None";
+
   const evolutionContext = previousStrategy ? `
     EVOLUTIONARY CONTEXT (Recursive Growth Engine):
     Previous Month Summary: ${previousStrategy.summary}
     Previous Quality Score: ${previousStrategy.quality_score}%
     Previous Trends Leveraged: ${previousStrategy.context?.industryTrends?.join(', ')}
     
+    FULL PREVIOUS CALENDAR (DO NOT REPEAT THESE TOPICS/HOOKS):
+    ${previousCalendarText}
+    
     STRATEGIC MANDATE:
-    1. Do NOT repeat the same angles or hooks.
-    2. BUILD on the momentum of the previous month.
+    1. Do NOT repeat the same angles, topics, or hooks from the previous month.
+    2. BUILD on the momentum of the previous month's story.
     3. If the previous month was "Foundational", this month should be "Expansion" or "Authority".
     4. Reference the natural progression of a brand's story.
+    5. This is month ${previousStrategy.monthId} + 1. Transition the narrative accordingly.
   ` : "INITIAL SETUP: This is the first month of the campaign. Focus on brand foundation and initial market alignment.";
 
   // 1. DYNAMIC QUERY GENERATION: Generate 5-7 ultra-targeted search queries
