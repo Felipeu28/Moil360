@@ -639,7 +639,8 @@ export async function generateAIImage(
   feedback?: string,
   existingBase64?: string,
   engine: 'gemini' | 'qwen' = 'gemini',
-  aspectRatio: '9:16' | '16:9' | '1:1' = '9:16'
+  aspectRatio: '9:16' | '16:9' | '1:1' = '9:16',
+  branding?: BrandDNA
 ): Promise<string> {
 
   if (engine === 'qwen') {
@@ -713,9 +714,21 @@ export async function generateAIImage(
 
       parts.push({ inlineData: { data: base64Data, mimeType } });
       parts.push({ text: `EDIT REQUEST: "${feedback}". Maintain composition and aspect ratio. Keep the core subject matter but apply the requested changes.` });
-    } else {
+      let finalPrompt = prompt;
+      if (branding) {
+        finalPrompt += `
+
+CRITICAL BRAND IDENTITY INJECTION (Must be visible in the image):
+- Primary Brand Color: ${branding.primaryColor} (Use this for key lighting, clothing accents, or focal points)
+- Secondary Brand Color: ${branding.secondaryColor} (Use this for background ambiance or secondary elements)
+- Mood: ${branding.toneVoice || 'Professional'}
+
+INSTRUCTION: Subtly integrate these specific hex colors into the scene's lighting and atmosphere. The image should feel like it belongs to this brand.
+        `;
+      }
+
       parts.push({
-        text: `${prompt}
+        text: `${finalPrompt}
 
 CRITICAL REQUIREMENTS:
 - This must be a direct, literal visual representation of the topic
