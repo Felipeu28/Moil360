@@ -728,37 +728,31 @@ CRITICAL REQUIREMENTS:
 
     console.log(`📸 Gemini API call with aspectRatio: ${aspectRatio}`);
 
-    // ✅ FIX: Use specialized generateImages method for Imagen 3
-    if (existingBase64 && feedback) {
-      // Fallback for editing (implementation pending specialized editImage support validation)
-      console.warn("Editing with Imagen 3 requires editImage API. Falling back to generateImages with prompt only.");
-      const editPrompt = parts.find(p => p.text)?.text || prompt;
-      const response = await ai.models.generateImages({
-        model: 'imagen-3.0-generate-001',
-        prompt: editPrompt,
-        config: {
-          numberOfImages: 1,
-          aspectRatio: aspectRatio
-        }
-      });
-      const data = response.generatedImages?.[0]?.image?.imageBytes;
-      if (!data) throw new Error("Rendering failed.");
-      return `data:image/png;base64,${data}`;
-    } else {
-      // Standard Generation
-      const promptText = parts[0].text;
-      const response = await ai.models.generateImages({
-        model: 'imagen-3.0-generate-001',
-        prompt: promptText,
-        config: {
-          numberOfImages: 1,
-          aspectRatio: aspectRatio
-        }
-      });
-      const data = response.generatedImages?.[0]?.image?.imageBytes;
-      if (!data) throw new Error("Rendering failed.");
-      return `data:image/png;base64,${data}`;
+    // DEBUG: List available models to find the correct one
+    try {
+      const modelList = await ai.models.list();
+      console.log("📜 AVAILABLE MODELS:", JSON.stringify(modelList, null, 2));
+    } catch (e) {
+      console.warn("⚠️ Could not list models:", e);
     }
+
+    // ✅ FIX: Use Gemini 2.0 Flash Exp for native image generation
+    const modelName = 'gemini-2.0-flash-exp';
+    console.log(`🎨 Generating image with ${modelName}...`);
+
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: { parts },
+      config: {
+        responseModalities: ['image'],
+        // @ts-ignore - response_modalities is valid but types might lag
+        imageConfig: { aspectRatio: aspectRatio }
+      }
+    });
+
+    const data = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+    if (!data) throw new Error("Rendering failed: No image data in response.");
+    return `data:image/png;base64,${data}`;
   });
 
   return response;
