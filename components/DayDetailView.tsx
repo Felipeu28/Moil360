@@ -518,11 +518,9 @@ export const DayDetailView: React.FC<Props> = ({
       const sourceImage = currentDayImages[currentDayImages.length - 1].url;
       const { url, uri, blob } = await generateAIVideo(
         sourceImage,
-        day.topic,
-        day.platform_strategy,
-        day.content_type,
+        day,
         brandDNA,
-        videoEngine  // ← ADD THIS LINE
+        videoEngine
       );
 
       onVideoGenerated({ dayIndex: day.day, url, permanentUri: uri, version: currentDayVideos.length + 1, createdAt: Date.now(), modelId: videoEngine, blob });
