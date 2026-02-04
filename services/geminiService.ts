@@ -223,7 +223,7 @@ export async function fetchRemoteStrategy(url: string): Promise<StrategyResult> 
 function validateVideoDistribution(calendar: ContentDay[]): ContentDay[] {
   const videoDays = calendar.filter(day => day.requires_video);
 
-  // âœ… VALIDATION: Ensure minimum 5 video days
+  // ✅ VALIDATION: Ensure minimum 5 video days
   if (videoDays.length < 5) {
     console.warn(`âš ï¸ Only ${videoDays.length} video days detected. Adding more...`);
 
@@ -244,7 +244,7 @@ function validateVideoDistribution(calendar: ContentDay[]): ContentDay[] {
     }
   }
 
-  // âœ… BALANCE: Ensure video days are distributed (not all clustered)
+  // ✅ BALANCE: Ensure video days are distributed (not all clustered)
   // Check for clustering (more than 3 consecutive video days)
   let consecutiveCount = 0;
   let lastVideoDay = -5;
@@ -274,7 +274,7 @@ function validateVideoDistribution(calendar: ContentDay[]): ContentDay[] {
     }
   }
 
-  console.log(`âœ… Video distribution validated: ${calendar.filter(d => d.requires_video).length} video days`);
+  console.log(`✅ Video distribution validated: ${calendar.filter(d => d.requires_video).length} video days`);
   return calendar;
 }
 
@@ -287,7 +287,7 @@ export async function generateContentStrategy(
   const year = new Date(baseDate).getFullYear();
   const brandContext = business.brandDNA ? `BRAND IDENTITY: Colors ${business.brandDNA.primaryColor}, Tone: ${business.brandDNA.toneVoice}. Negative Keywords: ${business.brandDNA.negativeKeywords.join(', ')}.` : "";
 
-  // âœ… EXTRACT MISSION FROM GUIDANCE (if sent via post-mortem bridge)
+  // ✅ EXTRACT MISSION FROM GUIDANCE (if sent via post-mortem bridge)
   let activeMission: StrategicMission = business.strategicMission || 'Growth';
   if (business.monthlyGuidance?.includes('[MISSION:')) {
     const match = business.monthlyGuidance.match(/\[MISSION:\s*(\w+)\]/);
@@ -397,7 +397,7 @@ ${type}:
   // ============================================================================
   // BATCHED GENERATION: 3-STAGE LOOP (30 DAYS TOTAL)
   // ============================================================================
-  console.log("ðŸš€ Starting Batched Strategy Generation...");
+  console.log("🚀 Starting Batched Strategy Generation...");
   const fullCalendar: ContentDay[] = [];
   let strategySummary = "";
   let qualityScore = 0;
@@ -482,7 +482,7 @@ ${type}:
     if (batchJson.calendar && Array.isArray(batchJson.calendar)) {
       fullCalendar.push(...batchJson.calendar);
 
-      // âœ… TRIGGER PROGRESS CALLBACK (Incremental Autosave)
+      // ✅ TRIGGER PROGRESS CALLBACK (Incremental Autosave)
       if (onProgress) {
         const nextMonthDate = new Date(baseDate);
         nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
@@ -494,7 +494,7 @@ ${type}:
           monthId: nextMonthDate.toISOString().slice(0, 7),
           summary: strategySummary || "Neural synthesis in progress...",
           quality_score: qualityScore || 0,
-          insights: insights || [], // âœ… REQUIRED: Ensure insights are passed (even if empty) to satisfy schema
+          insights: insights || [], // ✅ REQUIRED: Ensure insights are passed (even if empty) to satisfy schema
           context: strategyContext ? {
             ...strategyContext,
             // Ensure derived fields are always present
@@ -521,12 +521,12 @@ ${type}:
   const endDate = new Date(nextMonthDate);
   endDate.setDate(endDate.getDate() + 30);
 
-  // âœ… VALIDATE: Ensure we have all 30 days
+  // ✅ VALIDATE: Ensure we have all 30 days
   if (fullCalendar.length < 30) {
     console.warn(`âš ï¸ Strategy truncated to ${fullCalendar.length} days. Filling gaps...`);
   }
 
-  // âœ… WEEK 1: Validate and fix video distribution
+  // ✅ WEEK 1: Validate and fix video distribution
   const validatedCalendar = validateVideoDistribution(fullCalendar);
 
   return {
@@ -592,7 +592,7 @@ export function generateCSV(strategy: StrategyResult): string {
 
 
 export async function regenerateDay(business: BusinessInfo, currentDay: ContentDay, feedback: string): Promise<ContentDay> {
-  // âœ… WEEK 1: Apply caption variety to regenerated days
+  // ✅ WEEK 1: Apply caption variety to regenerated days
   const guidelines = CAPTION_LENGTH_GUIDELINES[currentDay.content_type as keyof typeof CAPTION_LENGTH_GUIDELINES];
   const lengthInstruction = guidelines
     ? `MAINTAIN ${guidelines.minWords}-${guidelines.maxWords} WORD COUNT. Structure: ${guidelines.structure}`
@@ -650,7 +650,7 @@ export async function generateAIImage(
     }
   }
 
-  console.log('ðŸŽ¨ Using Gemini image engine');
+  console.log('🎨 Using Gemini image engine');
 
   const response = await retryableCall(async () => {
     const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
@@ -692,7 +692,7 @@ export async function generateAIImage(
           base64Data = btoa(binary);
           mimeType = blob.type || 'image/png';
 
-          console.log(`âœ… Image fetched and converted: ${base64Data.length} chars`);
+          console.log(`✅ Image fetched and converted: ${base64Data.length} chars`);
         } catch (err: any) {
           if (err.name === 'AbortError') {
             throw new Error("Image fetch timeout. Please try again.");
@@ -772,7 +772,7 @@ export async function generateAIVideo(
     }
   }
 
-  console.log('ðŸŽ¬ Using Gemini video engine');
+  console.log('🎬 Using Gemini video engine');
 
   const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY });
 
@@ -859,7 +859,7 @@ export async function generateAIVideo(
 
       let finalBlob = blob;
       if (blob.size > 1024 * 1024) {
-        console.log(`âš™ï¸ Compressing image from ${(blob.size / 1024 / 1024).toFixed(2)}MB...`);
+        console.log(`⚙️ Compressing image from ${(blob.size / 1024 / 1024).toFixed(2)}MB...`);
 
         try {
           const img = new Image();
@@ -901,7 +901,7 @@ export async function generateAIVideo(
           });
 
           URL.revokeObjectURL(blobUrl);
-          console.log(`âœ… Compressed to ${(finalBlob.size / 1024 / 1024).toFixed(2)}MB`);
+          console.log(`✅ Compressed to ${(finalBlob.size / 1024 / 1024).toFixed(2)}MB`);
           mimeType = 'image/jpeg';
         } catch (compressionErr) {
           console.warn('âš ï¸ Compression failed, using original:', compressionErr);
@@ -929,7 +929,7 @@ export async function generateAIVideo(
           mimeType = 'image/jpeg';
         }
 
-        console.log(`âœ… Detected mimeType: ${mimeType}`);
+        console.log(`✅ Detected mimeType: ${mimeType}`);
       } else {
         mimeType = finalBlob.type;
       }
@@ -942,7 +942,7 @@ export async function generateAIVideo(
       }
       base64Data = btoa(binary);
 
-      console.log(`âœ… Base64 conversion complete: ${base64Data.length} chars, mimeType: ${mimeType}`);
+      console.log(`✅ Base64 conversion complete: ${base64Data.length} chars, mimeType: ${mimeType}`);
 
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -969,7 +969,7 @@ export async function generateAIVideo(
     mimeType = 'image/png';
   }
 
-  console.log(`ðŸŽ¬ Video generation starting with mimeType: ${mimeType}, base64 length: ${base64Data.length}`);
+  console.log(`🎬 Video generation starting with mimeType: ${mimeType}, base64 length: ${base64Data.length}`);
 
   console.log('ðŸ“¤ Sending to Gemini API:', {
     hasBase64: !!base64Data,
@@ -989,7 +989,7 @@ export async function generateAIVideo(
 
     if (modelsResponse.ok) {
       const modelInfo = await modelsResponse.json();
-      console.log('âœ… Veo model available:', {
+      console.log('✅ Veo model available:', {
         displayName: modelInfo.displayName,
         supportedMethods: modelInfo.supportedGenerationMethods
       });
@@ -1051,7 +1051,7 @@ AVOID (Critical):
 GOAL: Create strategic animation that enhances the message, aligns with platform behavior, and serves the content type's specific purpose.
 `;
 
-  console.log('ðŸŽ¬ Calling Gemini Video API directly (bypassing SDK)...');
+  console.log('🎬 Calling Gemini Video API directly (bypassing SDK)...');
 
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
 
@@ -1090,7 +1090,7 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
       response: operationData.response
     };
 
-    console.log('âœ… Video operation started:', operation.name);
+    console.log('✅ Video operation started:', operation.name);
 
   } catch (apiErr: any) {
     console.error('âŒ Gemini API Error Details:', {
@@ -1122,7 +1122,7 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
     throw new Error(`Gemini Video API Error: ${errorMsg}. Image size: ${(base64Data.length / 1024).toFixed(0)}KB, mimeType: ${mimeType}`);
   }
 
-  console.log(`ðŸŽ¬ Video operation started, polling for completion...`);
+  console.log(`🎬 Video operation started, polling for completion...`);
 
   let pollCount = 0;
   const maxPolls = 60;
@@ -1148,7 +1148,7 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
     pollCount++;
 
     if (pollCount % 6 === 0) {
-      console.log(`ðŸŽ¬ Still rendering... (${pollCount * 10}s elapsed)`);
+      console.log(`🎬 Still rendering... (${pollCount * 10}s elapsed)`);
     }
   }
 
@@ -1162,7 +1162,7 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
     throw new Error("Video render failed - no URI returned");
   }
 
-  console.log(`âœ… Video generated successfully: ${uri}`);
+  console.log(`✅ Video generated successfully: ${uri}`);
 
   const downloadUrl = `${uri}&key=${apiKey}`;
 
