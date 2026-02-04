@@ -484,17 +484,29 @@ ${type}:
 
       // ✅ TRIGGER PROGRESS CALLBACK (Incremental Autosave)
       if (onProgress) {
+        const nextMonthDate = new Date(baseDate);
+        nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+        const endDate = new Date(nextMonthDate);
+        endDate.setDate(endDate.getDate() + 30);
+
         onProgress({
           calendar: [...fullCalendar],
-          monthId: new Date(new Date(baseDate).setMonth(new Date(baseDate).getMonth() + 1)).toISOString().slice(0, 7),
+          monthId: nextMonthDate.toISOString().slice(0, 7),
           summary: strategySummary || "Neural synthesis in progress...",
           quality_score: qualityScore || 0,
-          context: strategyContext || {
-            today: baseDate,
-            endDate: baseDate,
-            quarter: Math.ceil((new Date(baseDate).getMonth() + 1) / 3),
-            seasonalFocus: "Recursive Analysis",
-            urgencyAngle: "Market Growth",
+          insights: insights || [], // ✅ REQUIRED: Ensure insights are passed (even if empty) to satisfy schema
+          context: strategyContext ? {
+            ...strategyContext,
+            // Ensure derived fields are always present
+            today: nextMonthDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+            quarter: Math.ceil((nextMonthDate.getMonth() + 1) / 3),
+          } : {
+            today: nextMonthDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0],
+            quarter: Math.ceil((nextMonthDate.getMonth() + 1) / 3),
+            seasonalFocus: "Neural Analysis",
+            urgencyAngle: "Growth Opportunity",
             industryTrends: []
           },
           strategicMission: activeMission,
@@ -715,8 +727,9 @@ CRITICAL REQUIREMENTS:
     }
 
     console.log(`📸 Gemini API call with aspectRatio: ${aspectRatio}`);
+    // Use Imagen 3 for high-quality image generation
     return ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'imagen-3.0-generate-001',
       contents: { parts },
       config: { imageConfig: { aspectRatio } }
     });
