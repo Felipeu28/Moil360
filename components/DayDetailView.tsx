@@ -118,6 +118,7 @@ export const DayDetailView: React.FC<Props> = ({
   const [activeLayerIndex, setActiveLayerIndex] = useState(0);
 
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const [editingLayerIndex, setEditingLayerIndex] = useState<number | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [draggingLayer, setDraggingLayer] = useState<number | null>(null);
@@ -159,13 +160,15 @@ export const DayDetailView: React.FC<Props> = ({
       type: 'text', id: 'layer-hook',
       text: day.hook, font: FONTS[0].family, color: COLORS[0].value, size: 25, isBold: true, pos: { x: 50, y: 35 },
       rotation: 0, scale: 1, opacity: 1,
-      glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 15, strokeColor: '#000000', strokeWidth: 0
+      glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 15, strokeColor: '#000000', strokeWidth: 0,
+      lineHeight: 1.1, letterSpacing: 0, textTransform: 'uppercase'
     },
     {
       type: 'text', id: 'layer-body',
       text: '', font: FONTS[2].family, color: COLORS[0].value, size: 20, isBold: false, pos: { x: 50, y: 65 },
       rotation: 0, scale: 1, opacity: 1,
-      glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0
+      glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0,
+      lineHeight: 1.1, letterSpacing: 0, textTransform: 'none'
     }
   ], [day.hook]);
 
@@ -203,6 +206,29 @@ export const DayDetailView: React.FC<Props> = ({
 
   const resetVisuals = () => {
     saveVisualEdits(getDefaultLayers(), 'none');
+  };
+
+  const duplicateLayer = (index: number) => {
+    if (!currentLayers[index]) return;
+    const layer = currentLayers[index];
+    const newLayer = { ...layer, id: `${layer.id}-copy-${Date.now()}`, pos: { x: layer.pos.x + 5, y: layer.pos.y + 5 } };
+    const nl = [...currentLayers];
+    nl.splice(index + 1, 0, newLayer);
+    saveVisualEdits(nl, activeVisualMode);
+    setActiveLayerIndex(index + 1);
+  };
+
+  const reorderLayer = (index: number, direction: 'up' | 'down') => {
+    const nl = [...currentLayers];
+    if (direction === 'up' && index < nl.length - 1) {
+      [nl[index], nl[index + 1]] = [nl[index + 1], nl[index]];
+      saveVisualEdits(nl, activeVisualMode);
+      setActiveLayerIndex(index + 1);
+    } else if (direction === 'down' && index > 0) {
+      [nl[index], nl[index - 1]] = [nl[index - 1], nl[index]];
+      saveVisualEdits(nl, activeVisualMode);
+      setActiveLayerIndex(index - 1);
+    }
   };
 
   const setVisualFilter = (modeId: string) => {
@@ -389,7 +415,12 @@ export const DayDetailView: React.FC<Props> = ({
               else if (layer.glassStyle === 'glass-tint') ctx.fillStyle = 'rgba(79,70,229,0.35)';
 
               lines.forEach((l, i) => {
-                const metrics = ctx.measureText(l.trim().toUpperCase());
+                let textToDraw = l.trim();
+                if (layer.textTransform === 'uppercase') textToDraw = textToDraw.toUpperCase();
+                else if (layer.textTransform === 'lowercase') textToDraw = textToDraw.toLowerCase();
+                else if (layer.textTransform === 'capitalize') textToDraw = textToDraw.replace(/\b\w/g, c => c.toUpperCase());
+
+                const metrics = ctx.measureText(textToDraw);
                 const bgW = metrics.width + (padX * 2);
                 const bgH = lineHeight + (padY * 2);
                 const yOffset = (i * (lineHeight + lineSpacing)) - (totalBlockHeight / 2) + (lineHeight / 2);
@@ -403,7 +434,11 @@ export const DayDetailView: React.FC<Props> = ({
 
             lines.forEach((l, i) => {
               const yOffset = (i * (lineHeight + lineSpacing)) - (totalBlockHeight / 2) + (lineHeight / 2);
-              const textToDraw = l.trim().toUpperCase();
+              let textToDraw = l.trim();
+              if (layer.textTransform === 'uppercase') textToDraw = textToDraw.toUpperCase();
+              else if (layer.textTransform === 'lowercase') textToDraw = textToDraw.toLowerCase();
+              else if (layer.textTransform === 'capitalize') textToDraw = textToDraw.replace(/\b\w/g, c => c.toUpperCase());
+
               ctx.save();
               if (layer.hasShadow) {
                 ctx.shadowColor = 'rgba(0,0,0,0.85)';
@@ -672,8 +707,8 @@ export const DayDetailView: React.FC<Props> = ({
               <div className="flex items-center gap-3 justify-end">
                 <span className="text-[8px] font-black text-slate-400 uppercase">{t.engine_slot}</span>
                 <div className="flex gap-1.5 bg-slate-200 p-1 rounded-xl">
-                  <button onClick={() => setImageEngine('gemini')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${imageEngine === 'gemini' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>{t.standard}</button>
-                  <button onClick={() => setImageEngine('qwen')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${imageEngine === 'qwen' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>Qwen (Backup)</button>
+                  <button onClick={() => setImageEngine('gemini')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${imageEngine === 'gemini' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>{t.gemini_engine || '✨ Gemini'}</button>
+                  <button onClick={() => setImageEngine('qwen')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${imageEngine === 'qwen' ? 'bg-amber-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>{t.qwen_engine || '🐲 Qwen'}</button>
                 </div>
               </div>
             </div>
@@ -762,6 +797,26 @@ export const DayDetailView: React.FC<Props> = ({
                 <button key={mode.id} onClick={() => setVisualFilter(mode.id)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase shrink-0 transition-all ${activeVisualMode === mode.id ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>{mode.name}</button>
               ))}
             </div>
+
+            {/* Premium Video Production Section */}
+            {currentDayImages.length > 0 && (
+              <div className={`mt-8 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 p-6 rounded-[2.5rem] border ${day.requires_video ? 'bg-rose-50 border-rose-100 shadow-lg' : 'bg-white border-slate-100'}`}>
+                <div className="flex items-center justify-between px-2">
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${day.requires_video ? 'text-rose-600' : 'text-slate-400'}`}>
+                    {day.requires_video ? '🔥 Premium Recommended' : '🎥 Production Engine'}
+                  </span>
+                  <div className="flex gap-2 bg-slate-200/50 p-1 rounded-xl">
+                    <button onClick={() => setVideoEngine('gemini')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${videoEngine === 'gemini' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>{t.veo_engine || '🎬 Veo 3.1'}</button>
+                    <button onClick={() => setVideoEngine('qwen')} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${videoEngine === 'qwen' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>{t.qwen_video_engine || '🐲 Qwen'}</button>
+                  </div>
+                </div>
+                <button onClick={handleAnimateVideo} disabled={loadingVid || currentDayVideos.length >= 3 || currentDayImages.length === 0} className={`w-full py-6 rounded-[2rem] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-4 transition-all shadow-xl ${loadingVid ? 'bg-slate-200 cursor-wait text-slate-500' : day.requires_video ? 'bg-rose-500 text-white hover:bg-rose-600 hover:scale-[1.02] group active:scale-95' : 'bg-slate-900 text-white hover:bg-black hover:scale-[1.02] group active:scale-95'}`}>
+                  {loadingVid ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Film className="w-5 h-5 group-hover:scale-110 transition-transform" />}
+                  {loadingVid ? t.processing : t.render_video}
+                </button>
+                {day.requires_video && <p className="text-[8px] text-rose-400 font-bold text-center italic tracking-wider uppercase">Strategic high-impact video day</p>}
+              </div>
+            )}
           </div>
 
           {showOverlayDesigner && (
@@ -799,7 +854,8 @@ export const DayDetailView: React.FC<Props> = ({
                       const newLayer: OverlaySettings = {
                         type: 'text', id: `layer-text-${Date.now()}`,
                         text: 'New Text', font: FONTS[0].family, color: COLORS[0].value, size: 20, isBold: true, pos: { x: 50, y: 50 },
-                        rotation: 0, scale: 1, opacity: 1, glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0
+                        rotation: 0, scale: 1, opacity: 1, glassStyle: 'none', textAlign: 'center', hasShadow: true, shadowBlur: 10, strokeColor: '#000000', strokeWidth: 0,
+                        lineHeight: 1.1, letterSpacing: 0, textTransform: 'uppercase'
                       };
                       const nl = [...currentLayers, newLayer];
                       saveVisualEdits(nl, activeVisualMode);
@@ -888,6 +944,27 @@ export const DayDetailView: React.FC<Props> = ({
                     </div>
                   </div>
                 )}
+
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><ArrowUp className="w-4 h-4 text-indigo-500" /> Line Height</label>
+                    <input type="range" min="0.8" max="2" step="0.1" value={currentLayers[activeLayerIndex]?.lineHeight || 1.1} onChange={e => updateLayer(activeLayerIndex, { lineHeight: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                  </div>
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><ArrowRight className="w-4 h-4 text-amber-500" /> Letter Spacing</label>
+                    <input type="range" min="-5" max="20" step="0.5" value={currentLayers[activeLayerIndex]?.letterSpacing || 0} onChange={e => updateLayer(activeLayerIndex, { letterSpacing: parseFloat(e.target.value) })} className="w-full h-1 bg-slate-50 rounded-full appearance-none accent-indigo-600 cursor-pointer" />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-3 ml-2"><TypeIcon className="w-4 h-4 text-indigo-500" /> Case & Logic</label>
+                  <div className="flex gap-2">
+                    {(['none', 'uppercase', 'lowercase', 'capitalize'] as const).map(mode => (
+                      <button key={mode} onClick={() => updateLayer(activeLayerIndex, { textTransform: mode })} className={`flex-1 py-3 rounded-xl text-[8px] font-black uppercase transition-all ${currentLayers[activeLayerIndex]?.textTransform === mode ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>{mode}</button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex justify-between items-center bg-slate-900 p-4 rounded-3xl">
                   <div className="flex gap-2">
                     <button onClick={() => updateLayer(activeLayerIndex, { textAlign: 'left' })} className={`p-3 rounded-xl transition-all ${currentLayers[activeLayerIndex]?.textAlign === 'left' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><AlignLeft className="w-4 h-4" /></button>
@@ -934,17 +1011,47 @@ export const DayDetailView: React.FC<Props> = ({
                               zIndex: activeLayerIndex === i ? 40 : 30,
                               touchAction: 'none'
                             }}
-                            className={`absolute flex flex-col items-center justify-center select-none ${showOverlayDesigner ? 'cursor-grab active:cursor-grabbing transition-shadow' : ''} ${isSelected ? 'ring-4 ring-indigo-500 shadow-[0_0_40px_rgba(99,102,241,0.5)] rounded-2xl' : ''}`}>
+                            onClick={(e) => { e.stopPropagation(); setActiveLayerIndex(i); }}
+                            className={`absolute flex flex-col items-center justify-center select-none ${showOverlayDesigner ? 'cursor-grab active:cursor-grabbing transition-shadow' : ''} ${isSelected ? 'ring-4 ring-indigo-500 shadow-[0_0_40px_rgba(99,102,241,0.5)] rounded-2xl border-none p-0' : ''}`}>
 
                             {layer.type === 'image' ? (
                               <img src={layer.imageUrl} className={`w-full h-full object-contain ${layer.hasShadow ? 'drop-shadow-2xl' : ''}`} alt="Layer" />
+                            ) : editingLayerIndex === i ? (
+                              <textarea
+                                autoFocus
+                                value={layer.text || ''}
+                                onChange={e => updateLayer(i, { text: e.target.value })}
+                                onBlur={() => setEditingLayerIndex(null)}
+                                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) setEditingLayerIndex(null); }}
+                                style={{
+                                  color: layer.color || '#FFFFFF',
+                                  fontSize: `${fontSize}px`,
+                                  fontWeight: layer.isBold ? 900 : 500,
+                                  fontFamily: `'${layer.font || 'Anton'}', sans-serif`,
+                                  textAlign: layer.textAlign || 'center',
+                                  letterSpacing: `${layer.letterSpacing || 0}px`,
+                                  lineHeight: layer.lineHeight || 1.1,
+                                  background: 'rgba(255,255,255,0.1)',
+                                  width: '100%',
+                                  border: 'none',
+                                  outline: 'none',
+                                  resize: 'none',
+                                  padding: '10px'
+                                }}
+                                className="rounded-xl shadow-2xl backdrop-blur-sm"
+                              />
                             ) : (
-                              <div className="relative w-full flex flex-col items-center">
+                              <div className="relative w-full flex flex-col items-center" onDoubleClick={() => setEditingLayerIndex(i)}>
                                 {(layer.text || '').split('\n').map((line, lineIdx) => {
                                   if (!line || !line.trim()) return null;
                                   const glassClass = GLASS_OPTIONS.find(g => g.id === layer.glassStyle)?.class || '';
+                                  let textToDisplay = line.trim();
+                                  if (layer.textTransform === 'uppercase') textToDisplay = textToDisplay.toUpperCase();
+                                  else if (layer.textTransform === 'lowercase') textToDisplay = textToDisplay.toLowerCase();
+                                  else if (layer.textTransform === 'capitalize') textToDisplay = textToDisplay.replace(/\b\w/g, c => c.toUpperCase());
+
                                   return (
-                                    <div key={lineIdx} className={`${glassClass} px-3 py-1 my-[0.1em] transition-all rounded-sm flex items-center justify-center`}>
+                                    <div key={lineIdx} className={`${glassClass} px-3 py-1 my-[0.1em] transition-all rounded-sm flex items-center justify-center`} style={{ marginBottom: `${(layer.lineHeight || 1.1) - 1}em` }}>
                                       <h2 style={{
                                         color: layer.color || '#FFFFFF',
                                         fontSize: `${fontSize}px`,
@@ -952,13 +1059,32 @@ export const DayDetailView: React.FC<Props> = ({
                                         fontFamily: `'${layer.font || 'Anton'}', sans-serif`,
                                         textShadow: layer.hasShadow ? `0 4px ${(layer.shadowBlur || 15) / 4}px rgba(0,0,0,0.9)` : 'none',
                                         textAlign: layer.textAlign || 'center',
-                                        WebkitTextStroke: (layer.strokeWidth || 0) > 0 ? `${((layer.strokeWidth || 0) / 100) * fontSize}px ${layer.strokeColor || '#000000'}` : 'none'
-                                      }} className="uppercase tracking-tight whitespace-nowrap leading-[1.1]">
-                                        {line.trim()}
+                                        WebkitTextStroke: (layer.strokeWidth || 0) > 0 ? `${((layer.strokeWidth || 0) / 100) * fontSize}px ${layer.strokeColor || '#000000'}` : 'none',
+                                        letterSpacing: `${layer.letterSpacing || 0}px`,
+                                        textTransform: 'none', // Managed by logic above
+                                        lineHeight: layer.lineHeight || 1.1
+                                      }} className="tracking-tight whitespace-nowrap leading-[1.1]">
+                                        {textToDisplay}
                                       </h2>
                                     </div>
                                   );
                                 })}
+                              </div>
+                            )}
+
+                            {/* Contextual Toolbar - Only for selected non-editing layer */}
+                            {isSelected && editingLayerIndex === null && (
+                              <div className="absolute top-[-50px] left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-xl border border-white/20 p-2 rounded-2xl shadow-2xl flex items-center gap-1.5 z-[100] animate-in slide-in-from-bottom-2 duration-200">
+                                <button onClick={(e) => { e.stopPropagation(); updateLayer(i, { size: Math.max(5, (layer.size || 25) - 2) }); }} className="p-2 text-white hover:bg-white/10 rounded-xl transition-all" title="Decrease Size"><ArrowDown className="w-3.5 h-3.5" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); updateLayer(i, { size: Math.min(100, (layer.size || 25) + 2) }); }} className="p-2 text-white hover:bg-white/10 rounded-xl transition-all" title="Increase Size"><ArrowUp className="w-3.5 h-3.5" /></button>
+                                <div className="w-[1px] h-4 bg-white/20 mx-1" />
+                                <button onClick={(e) => { e.stopPropagation(); reorderLayer(i, 'down'); }} className={`p-2 text-white hover:bg-white/10 rounded-xl transition-all ${i === 0 ? 'opacity-30 pointer-events-none' : ''}`} title="Move Back"><Layers className="w-3.5 h-3.5 rotate-180" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); reorderLayer(i, 'up'); }} className={`p-2 text-white hover:bg-white/10 rounded-xl transition-all ${i === currentLayers.length - 1 ? 'opacity-30 pointer-events-none' : ''}`} title="Bring Front"><Layers className="w-3.5 h-3.5" /></button>
+                                <div className="w-[1px] h-4 bg-white/20 mx-1" />
+                                <button onClick={(e) => { e.stopPropagation(); duplicateLayer(i); }} className="p-2 text-white hover:bg-white/10 rounded-xl transition-all" title="Duplicate"><Plus className="w-3.5 h-3.5" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); if (confirm('Delete layer?')) { const nl = currentLayers.filter((_, idx) => idx !== i); saveVisualEdits(nl, activeVisualMode); setActiveLayerIndex(Math.max(0, i - 1)); } }} className="p-2 text-rose-400 hover:bg-rose-500/20 rounded-xl transition-all" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                                <div className="w-[1px] h-4 bg-white/20 mx-1" />
+                                <button onClick={(e) => { e.stopPropagation(); setEditingLayerIndex(i); }} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase tracking-tight hover:bg-indigo-500 transition-all shadow-lg ml-1">Edit Text</button>
                               </div>
                             )}
                           </div>
@@ -985,20 +1111,6 @@ export const DayDetailView: React.FC<Props> = ({
                     </button>
                   ))}
                 </div>
-                {day.requires_video && (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                    <div className="flex items-center justify-between px-8 bg-slate-50 py-4 rounded-[2rem] border border-slate-100">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.engine_slot}</span>
-                      <div className="flex gap-2 bg-slate-200 p-1.5 rounded-2xl">
-                        <button onClick={() => setVideoEngine('gemini')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${videoEngine === 'gemini' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>{t.fast}</button>
-                        <button onClick={() => setVideoEngine('qwen')} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${videoEngine === 'qwen' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}>Qwen (Backup)</button>
-                      </div>
-                    </div>
-                    <button onClick={handleAnimateVideo} disabled={loadingVid || currentDayVideos.length >= 3 || currentDayImages.length === 0} className={`w-full py-8 rounded-[3rem] text-[12px] font-black uppercase tracking-widest flex items-center justify-center gap-5 transition-all shadow-2xl ${loadingVid ? 'bg-slate-200 cursor-wait text-slate-500' : 'bg-slate-900 text-white hover:bg-black hover:scale-[1.02] group active:scale-95'}`}>
-                      {loadingVid ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Film className="w-6 h-6 group-hover:scale-110 transition-transform" />} {loadingVid ? t.processing : t.render_video}
-                    </button>
-                  </div>
-                )}
               </div>
             )}
           </div>
