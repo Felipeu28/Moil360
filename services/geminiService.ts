@@ -1057,6 +1057,7 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
 
   let operation;
   try {
+    // ✅ FIX: Use correct Gemini API format for Veo
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:predictLongRunning?key=${apiKey}`,
       {
@@ -1065,15 +1066,18 @@ GOAL: Create strategic animation that enhances the message, aligns with platform
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          instances: [
-            {
-              prompt: videoPrompt,
-              image: {
-                mime_type: mimeType,
-                data: base64Data
+          contents: [{
+            role: 'user',
+            parts: [
+              { text: videoPrompt },
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data
+                }
               }
-            }
-          ]
+            ]
+          }]
         })
       }
     );
