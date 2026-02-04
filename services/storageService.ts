@@ -472,6 +472,7 @@ export class StorageService {
     }
 
     try {
+      // ✅ ATOMIC ARCHIVAL: Update strategy AND delete heavy assets
       const { status } = await supabase.from('strategies')
         .update({ archived_at: archivedAt, data: archivedStrategy })
         .eq('project_id', projectId)
@@ -481,6 +482,11 @@ export class StorageService {
         this.triggerCircuitBreaker();
         throw new Error("Vault Timeout");
       }
+
+      // ✅ CLEANUP: Explicitly remove heavy assets for this project to keep storage lean
+      // This ensures we only keep the text/CSV data as requested
+      await supabase.from('assets').delete().eq('project_id', projectId);
+
     } catch (err: any) {
       if (err.message === "Vault Timeout") throw err;
       throw new Error(`Cloud Sync Unavailable.`);
